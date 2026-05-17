@@ -3,6 +3,96 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Send, Loader2 } from "lucide-react";
 
+function renderMd(text: string) {
+  const lines = text.split("\n");
+  const out: React.ReactNode[] = [];
+  let i = 0;
+
+  const parseLine = (line: string): React.ReactNode => {
+    // Bold **text**
+    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((p, idx) =>
+      p.startsWith("**") && p.endsWith("**")
+        ? <strong key={idx}>{p.slice(2, -2)}</strong>
+        : p
+    );
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      out.push(<hr key={i} style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.1)", margin: "8px 0" }} />);
+      i++; continue;
+    }
+
+    // Table
+    if (line.trim().startsWith("|")) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      const rows = tableLines.filter(r => !/^\|[-| :]+\|$/.test(r.trim()));
+      out.push(
+        <table key={i} style={{ borderCollapse: "collapse", width: "100%", fontSize: 11, marginBottom: 4 }}>
+          <tbody>
+            {rows.map((r, ri) => (
+              <tr key={ri}>
+                {r.split("|").filter((_, ci) => ci > 0 && ci < r.split("|").length - 1).map((cell, ci) => (
+                  <td key={ci} style={{ padding: "2px 6px", borderBottom: "1px solid rgba(255,255,255,0.08)", color: ri === 0 ? "#10b981" : "#cbd5e1" }}>
+                    {parseLine(cell.trim())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+      continue;
+    }
+
+    // Heading ###
+    const h3 = line.match(/^###\s+(.*)/);
+    if (h3) {
+      out.push(<p key={i} style={{ fontWeight: 700, fontSize: 12, color: "#10b981", marginTop: 8, marginBottom: 2 }}>{parseLine(h3[1])}</p>);
+      i++; continue;
+    }
+    // Heading ##
+    const h2 = line.match(/^##\s+(.*)/);
+    if (h2) {
+      out.push(<p key={i} style={{ fontWeight: 700, fontSize: 13, color: "#e2e8f0", marginTop: 6, marginBottom: 2 }}>{parseLine(h2[1])}</p>);
+      i++; continue;
+    }
+    // Heading #
+    const h1 = line.match(/^#\s+(.*)/);
+    if (h1) {
+      out.push(<p key={i} style={{ fontWeight: 800, fontSize: 14, color: "#ffffff", marginTop: 6, marginBottom: 2 }}>{parseLine(h1[1])}</p>);
+      i++; continue;
+    }
+
+    // List item
+    const li = line.match(/^[-*]\s+(.*)/);
+    if (li) {
+      out.push(<p key={i} style={{ margin: "1px 0", paddingLeft: 12 }}>• {parseLine(li[1])}</p>);
+      i++; continue;
+    }
+
+    // Empty line
+    if (line.trim() === "") {
+      out.push(<br key={i} />);
+      i++; continue;
+    }
+
+    // Normal line
+    out.push(<p key={i} style={{ margin: "2px 0" }}>{parseLine(line)}</p>);
+    i++;
+  }
+
+  return <div style={{ fontSize: 12, lineHeight: 1.6 }}>{out}</div>;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -81,7 +171,7 @@ export default function MoncefAIChat({ onClose }: { onClose: () => void }) {
                 ? "bg-emerald-600/20 border border-emerald-500/30 text-slate-100 rounded-tr-none"
                 : "bg-slate-800/80 border border-slate-700/50 text-slate-200 rounded-tl-none"
             }`}>
-              {m.content}
+              {m.role === "assistant" ? renderMd(m.content) : m.content}
             </div>
           </div>
         ))}
