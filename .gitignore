@@ -44,3 +44,5 @@ next-env.d.ts
 
 # local SQLite database (not needed on Vercel — using Turso)
 prisma/dev.db
+prisma/dev.db-shm
+prisma/dev.db-wal
