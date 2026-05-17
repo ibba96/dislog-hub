@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Division {
+  id       String   @id @default(cuid())
+  name     String   @unique
+  color    String
+  entities Entity[]
+}
+
+model Entity {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+  divisionId  String
+  division    Division   @relation(fields: [divisionId], references: [id])
+  kpiEntries  KpiEntry[]
+}
+
+model KpiDefinition {
+  id       String     @id @default(cuid())
+  name     String
+  unit     String
+  category String
+  order    Int        @default(0)
+  entries  KpiEntry[]
+}
+
+model KpiEntry {
+  id        String        @id @default(cuid())
+  entityId  String
+  kpiDefId  String
+  period    String
+  value     Float
+  target    Float?
+  note      String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  entity    Entity        @relation(fields: [entityId], references: [id])
+  kpiDef    KpiDefinition @relation(fields: [kpiDefId], references: [id])
+
+  @@unique([entityId, kpiDefId, period])
+}
