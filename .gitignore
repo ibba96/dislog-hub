@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# local SQLite database (not needed on Vercel — using Turso)
+prisma/dev.db
