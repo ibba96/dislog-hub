@@ -14,13 +14,20 @@ export default function LoginPage() {
     setLoading(true);
     setError(false);
 
-    // Simple password check — stored in env or hardcoded
-    const PASS = process.env.NEXT_PUBLIC_DASHBOARD_PASSWORD ?? "Dislog2026";
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
 
-    if (password === PASS) {
-      document.cookie = "dislog_auth=1; path=/; max-age=86400";
-      router.push("/accueil");
-    } else {
+      if (res.ok) {
+        window.location.href = "/accueil";
+      } else {
+        setError(true);
+        setLoading(false);
+      }
+    } catch {
       setError(true);
       setLoading(false);
     }
