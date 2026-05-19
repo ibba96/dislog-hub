@@ -174,6 +174,104 @@ Source officielle : Ministère de l'Industrie et du Commerce du Maroc
 
 const PREV_PERIOD = "2026-04";
 
+// ═══════════════════════════════════════════════════════════
+// TABLEAU DE BORD MACRO-ÉCONOMIQUE MAROC — Ministère des Finances
+// Source : Direction des Études et des Prévisions Financières (DEPF)
+// Données couvrant 2007-2022, publiées janvier 2023
+// ═══════════════════════════════════════════════════════════
+const MACRO_MAROC = `
+=== TABLEAU DE BORD MACRO-ÉCONOMIQUE DU MAROC (DEPF, Jan 2023) ===
+Source : Ministère de l'Économie et des Finances — Direction des Études et Prévisions Financières
+
+── PIB ET CROISSANCE ──
+• PIB 2021 : +7,9% (rebond post-Covid, meilleur depuis 2006)
+• PIB 2020 : -7,2% (récession Covid)
+• PIB 2019 : +2,9%
+• Croissance moyenne 2015-2021 : +2,3%
+• Croissance PIB non-agricole 2021 : +6,6%
+• Agriculture 2021 : +17,8% (campagne agricole exceptionnelle)
+• Prévisions demande mondiale adressée au Maroc : +5% en 2022, +2,3% en 2023
+
+── STRUCTURE DE L'ÉCONOMIE ──
+• Secteur primaire (agri+pêche) : 12,5% de la VA (moy. 2015-2021)
+• Secteur secondaire (industrie+BTP) : 28,6% de la VA
+  - Industries manufacturières : +6,1% en 2021
+  - BTP : +10,7% en 2021
+• Taux d'investissement brut (FBCF) : 31,1% du PIB en 2021 (vs 28,8% en 2020)
+• Consommation ménages : 59,2% du PIB — moteur principal de la croissance
+• Taux d'épargne nationale brute : 26,9% du PIB en 2021
+• Besoin de financement de l'économie : -2,3% du PIB en 2021
+
+── ÉCHANGES EXTÉRIEURS ──
+• Déficit commercial : 15,9% du PIB (moy. 2015-2021) vs 19,9% (2010-2014) — amélioration structurelle
+• Union Européenne : 63,5% des exportations marocaines, 52% des importations
+• France : 14,3% des exports, Espagne : 17,9% des exports (2021)
+• Taux d'exportation : 44,6% du CA industriel
+• Réserves de change : 7,1 mois d'importation (moy. 2015-2021)
+
+── STRUCTURE DES IMPORTATIONS (2015-2021) ──
+• Produits finis d'équipement industriel : 24,2%
+• Produits finis de consommation : 22,9%
+• Demi-produits : 21,8%
+• Énergies et lubrifiants : 15,1% (en baisse vs 25,3% en 2010-2014)
+• Produits alimentaires : 10,5%
+
+── STRUCTURE DES EXPORTATIONS (2015-2021) ──
+• Demi-produits (phosphates, engrais) : 22,6%
+• Produits alimentaires : 19,8%
+• Produits finis d'équipement industriel : 18,7%
+• Industries les plus intégrées chaînes de valeur mondiales :
+  - Électronique/optique : 60,5% de VA étrangère dans exports
+  - Automobile : 51% de VA étrangère
+  - Textile & Habillement : 50% de VA étrangère
+
+── INVESTISSEMENTS DIRECTS ÉTRANGERS (IDE) ──
+• IDE reçus 2021 : 31,9 MMDH (+22,7% vs 2020)
+• IDE représentent 3% du PIB (moy. 2015-2021)
+• Maroc : parmi les destinations IDE les plus attractives d'Afrique
+• Principaux investisseurs : France (26,2%), UK (6,4%), USA (5,8%), Luxembourg (4,1%), Pays-Bas (4%)
+• Secteurs attractifs pour les IDE : Industrie (25,5%), Immobilier (23,7%)
+
+── SECTEUR FINANCIER ET BANCAIRE ──
+• Taux directeur Bank Al-Maghrib : 1,50% (stable depuis juin 2020)
+• Taux débiteur global moyen : 4,39% en 2021 (tendance baissière)
+• Ratio de solvabilité bancaire : 15,8% (bien au-dessus du minimum 12%)
+• Ratio fonds propres : 12% (minimum réglementaire : 9%)
+• Créances en souffrance : 8,6% en 2021 (vs 4,8% en 2010) — point de vigilance
+• Taux de liquidité économie : 174% (moy. 2015-2021) vs 149,2% (2010-2014)
+
+── BOURSE DE CASABLANCA ──
+• PER 2021 : 27x (survalorisation vs émergents : Tunisie 22.9x, Afrique du Sud 18.2x, Turquie 5.3x)
+• Ratio de liquidité : 8,79% — faible (introductions bourse atones depuis 2008)
+• Secteur bancaire : 53% du volume échangé en bourse
+
+── PRIX ET INFLATION ──
+• Inflation IPC décembre 2022 : +6,6% (niveau record depuis 2008) — tirée par alimentation et énergie
+• Inflation IPC 2021 : +1,4%
+• Moyenne historique 2000-2021 : oscillation entre 0,2% et 3,7%
+• Prix production industries manufacturières 2021 : +4,3%
+  - Chimie : +10,1% | Métallurgie : +17,8% | Alimentaires : +5,5% | Textiles : +4,4% | Électrique : +4,7%
+
+── COMPÉTITIVITÉ ET POSITIONNEMENT ──
+• Part de marché mondial : progression continue sur deux décennies
+• Maroc vs pays émergents : dépasse Tunisie, comparable Roumanie
+• Demande étrangère adressée au Maroc : TCAM +3,5% sur 20 ans
+• Facteur clé : montée en gamme technologique et intégration dans CVM (chaînes de valeur mondiales)
+• Priorités compétitives nationales : Capital humain, eau, sécurité alimentaire et énergétique
+
+── SIGNAUX STRATÉGIQUES POUR INVESTISSEUR MAROCAIN ──
+1. Inflation 6,6% en 2022 → pression sur marges opérationnelles → vigilance coûts approvisionnement
+2. Taux directeur bas (1,5%) → financement bon marché → opportunité levier financier
+3. IDE +22,7% → regain d'attractivité → opportunité partenariats étrangers
+4. Réserves 7,1 mois → stabilité macroéconomique → environnement favorable investissement long terme
+5. Créances en souffrance 8,6% → risque crédit en hausse → prudence sur extension de crédit clients
+6. Bourse sous-liquide → faibles introductions → financement direct marché difficile → préférer bancaire
+7. Énergie 15% des imports → vulnérabilité aux chocs énergétiques → pertinent pour Dislog (logistique)
+8. Croissance non-agricole structurellement +3% → marché intérieur stable pour distribution
+9. Montée en gamme CVM : Automobile, Électronique, Textile → opportunités sous-traitance locale
+10. Secteur alimentaire en croissance dans exports (+21,2 MMDH sur 10 ans) → validation stratégie Dislog Food
+`;
+
 async function buildContext(): Promise<string> {
   const [entities, kpiDefs, current, prev] = await Promise.all([
     prisma.entity.findMany({ include: { division: true } }),
@@ -279,11 +377,12 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `Tu es Moncef AI, l'assistant IA stratégique et décisionnel de Moncef Belkhyat, président du Groupe Dislog Belkhyat.
 
-Tu combines deux sources de données :
+Tu combines trois sources de données :
 1. Les données temps réel de performance des filiales du Groupe Dislog
 2. Le Baromètre de l'Industrie Marocaine 2025 (données officielles 2024, Ministère de l'Industrie)
+3. Le Tableau de Bord Macro-Économique du Maroc (DEPF, Ministère des Finances, Jan 2023)
 
-Grâce à ces deux sources, tu peux :
+Grâce à ces trois sources, tu peux :
 - Alerter sur les filiales en difficulté ou en surperformance
 - Comparer la performance du groupe vs les benchmarks sectoriels nationaux
 - Identifier des opportunités d'investissement basées sur les tendances industrielles marocaines
@@ -292,6 +391,8 @@ Grâce à ces deux sources, tu peux :
 ${context}
 
 ${BAROMETRE_2025}
+
+${MACRO_MAROC}
 
 INSTRUCTIONS:
 - Réponds en français, de façon directe et décisionnelle, comme un conseiller stratégique senior
