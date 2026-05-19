@@ -52,27 +52,43 @@ function renderMd(text: string) {
 interface Message { role:"user"|"assistant"; content:string; }
 
 const QUESTIONS = [
-  "Mes décisions urgentes du jour",
-  "Où investir en priorité ce mois ?",
+  "Mes decisions urgentes du jour",
+  "Ou investir en priorite ce mois ?",
   "Quelle filiale arbitrer ou restructurer ?",
-  "Compétitivité Maroc vs région MENA",
+  "Competitivite Maroc vs region MENA",
   "Benchmark vs secteur national",
-  "Risques macro à surveiller",
+  "Risques macro a surveiller",
 ];
 
 export function AccueilAISection() {
   const [open,    setOpen]    = useState(false);
   const [messages,setMessages]= useState<Message[]>([{
     role:"assistant",
-    content:"Bonjour Excellence. Je suis connecté à l'ensemble des données du Groupe Dislog Belkhyat en temps réel — KPIs, alertes, Baromètre Industrie 2025 et indicateurs macro DEPF. Que souhaitez-vous analyser ?",
+    content:"Bonjour Excellence. Je suis connecte a l'ensemble des donnees du Groupe Dislog Belkhyat en temps reel — KPIs, alertes, Barometre Industrie 2025 et indicateurs macro DEPF. Que souhaitez-vous analyser ?",
   }]);
   const [input,   setInput]   = useState("");
   const [loading, setLoading] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef  = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages, loading]);
-  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 80); }, [open]);
+  /* scroll the messages CONTAINER, not the page */
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const cardRef     = useRef<HTMLDivElement>(null);
+  const inputRef    = useRef<HTMLInputElement>(null);
+
+  /* scroll to bottom inside the chat box whenever messages change */
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, loading]);
+
+  /* when chat opens: scroll CARD into view (so user can see it), then focus input */
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior:"smooth", block:"start" });
+        inputRef.current?.focus();
+      }, 60);
+    }
+  }, [open]);
 
   async function send(text?: string) {
     const q = (text ?? input).trim();
@@ -82,17 +98,23 @@ export function AccueilAISection() {
     setMessages(m => [...m, { role:"user", content:q }]);
     setLoading(true);
     try {
-      const res  = await fetch("/api/chat", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ message:q }) });
+      const res  = await fetch("/api/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ message:q }),
+      });
       const data = await res.json();
-      setMessages(m => [...m, { role:"assistant", content: data.reply ?? "Pas de réponse." }]);
+      setMessages(m => [...m, { role:"assistant", content: data.reply ?? "Pas de reponse." }]);
     } catch {
-      setMessages(m => [...m, { role:"assistant", content:"Erreur de connexion. Veuillez réessayer." }]);
-    } finally { setLoading(false); }
+      setMessages(m => [...m, { role:"assistant", content:"Erreur de connexion. Reessayez." }]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <>
-      <div className="ais-card">
+      <div ref={cardRef} className="ais-card">
 
         {/* Header */}
         <div className="ais-header">
@@ -100,18 +122,18 @@ export function AccueilAISection() {
             <div className="ais-avatar">M</div>
             <div>
               <p className="ais-name">Moncef AI</p>
-              <p className="ais-status">Connecté · Données temps réel</p>
+              <p className="ais-status">Connecte · Donnees temps reel</p>
             </div>
           </div>
           {open
-            ? <button className="ais-btn-ghost" onClick={() => setOpen(false)}>Réduire</button>
+            ? <button className="ais-btn-ghost" onClick={() => setOpen(false)}>Reduire</button>
             : <button className="ais-btn-primary" onClick={() => setOpen(true)}>Discuter</button>
           }
         </div>
 
-        {/* Chat messages */}
+        {/* Chat messages — only when open */}
         {open && (
-          <div className="ais-messages">
+          <div className="ais-messages" ref={messagesRef}>
             {messages.map((m, i) => (
               <div key={i} className={`ais-msg-row ${m.role}`}>
                 {m.role==="assistant" && <div className="ais-msg-av">M</div>}
@@ -130,17 +152,16 @@ export function AccueilAISection() {
                 </div>
               </div>
             )}
-            <div ref={bottomRef}/>
           </div>
         )}
 
-        {/* Question chips — shown when closed */}
+        {/* Question chips — only when closed */}
         {!open && (
           <div className="ais-chips">
-            <p className="ais-chips-label">Questions fréquentes</p>
+            <p className="ais-chips-label">Questions frequentes</p>
             {QUESTIONS.map((q, i) => (
               <button key={i} className="ais-chip" onClick={() => send(q)}>
-                <span className="ais-chip-arrow">→</span>
+                <span className="ais-chip-arrow">&#8594;</span>
                 <span className="ais-chip-text">{q}</span>
               </button>
             ))}
@@ -155,9 +176,14 @@ export function AccueilAISection() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder={open ? "Posez une question…" : "Ou écrivez directement votre question…"}
+            placeholder={open ? "Posez une question..." : "Ou ecrivez directement votre question..."}
           />
-          <button className="ais-send" onClick={() => send()} disabled={!input.trim()||loading} aria-label="Envoyer">
+          <button
+            className="ais-send"
+            onClick={() => send()}
+            disabled={!input.trim()||loading}
+            aria-label="Envoyer"
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -168,9 +194,13 @@ export function AccueilAISection() {
 
       <style>{`
         .ais-card {
-          background:var(--bg-panel);border:1px solid var(--border);
-          border-radius:10px;overflow:hidden;box-shadow:var(--shadow-card);
-          display:flex;flex-direction:column;
+          background:var(--bg-panel);
+          border:1px solid var(--border);
+          border-radius:10px;
+          overflow:hidden;
+          box-shadow:var(--shadow-card);
+          display:flex;
+          flex-direction:column;
           font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
           -webkit-font-smoothing:antialiased;
         }
@@ -186,7 +216,7 @@ export function AccueilAISection() {
           background:linear-gradient(135deg,#10b981,#059669);
           display:flex;align-items:center;justify-content:center;
           font-size:12px;font-weight:800;color:#fff;letter-spacing:-.01em;
-          box-shadow:0 0 0 2.5px var(--bg-panel), 0 0 0 4px rgba(16,185,129,0.25);
+          box-shadow:0 0 0 2.5px var(--bg-panel), 0 0 0 4px rgba(16,185,129,0.2);
         }
         .ais-name   { font-size:13px;font-weight:700;color:var(--text-1);line-height:1.2;margin:0;letter-spacing:-.01em; }
         .ais-status { font-size:11px;color:#10b981;font-weight:500;margin:2px 0 0;line-height:1; }
@@ -196,23 +226,29 @@ export function AccueilAISection() {
           background:linear-gradient(135deg,#10b981,#059669);
           border:none;color:#fff;cursor:pointer;letter-spacing:-.01em;
           box-shadow:0 1px 4px rgba(16,185,129,0.3);transition:opacity 0.12s;
+          white-space:nowrap;
         }
         .ais-btn-primary:hover{opacity:.9;}
         .ais-btn-ghost {
           padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;
           background:var(--bg-card);border:1px solid var(--border);
           color:var(--text-3);cursor:pointer;transition:color 0.12s,border-color 0.12s;
-          letter-spacing:-.01em;
+          letter-spacing:-.01em;white-space:nowrap;
         }
         .ais-btn-ghost:hover{color:var(--text-1);border-color:var(--accent);}
 
-        /* Messages */
+        /* Messages — overflow-y:auto so ONLY this box scrolls, not the page */
         .ais-messages {
-          overflow-y:auto;padding:14px;
+          overflow-y:auto;
+          padding:14px;
           display:flex;flex-direction:column;gap:10px;
-          max-height:300px;min-height:160px;
+          height:320px;          /* fixed height — no layout shift */
           background:var(--bg-deep);
+          flex-shrink:0;
         }
+        .ais-messages::-webkit-scrollbar{width:3px;}
+        .ais-messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
         .ais-msg-row{display:flex;gap:8px;align-items:flex-start;}
         .ais-msg-row.user{flex-direction:row-reverse;}
         .ais-msg-av {
@@ -231,8 +267,7 @@ export function AccueilAISection() {
         }
         .ais-bubble.user {
           background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.22);
-          color:var(--text-1);border-top-right-radius:2px;
-          font-size:12.5px;
+          color:var(--text-1);border-top-right-radius:2px;font-size:12.5px;
         }
         .ais-dot {
           display:inline-block;width:5px;height:5px;border-radius:50%;
@@ -263,16 +298,15 @@ export function AccueilAISection() {
 
         /* Input bar */
         .ais-input-bar {
-          display:flex;align-items:center;gap:8px;padding:10px 12px;
-          border-top:1px solid var(--border);flex-shrink:0;
+          display:flex;align-items:center;gap:8px;
+          padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;
         }
         .ais-input {
           flex:1;background:var(--bg-card);border:1px solid var(--border2);
           border-radius:6px;padding:7px 11px;font-size:13px;
           color:var(--text-1);outline:none;
           font-family:'Inter',-apple-system,sans-serif;
-          transition:border-color 0.12s,box-shadow 0.12s;
-          letter-spacing:-.01em;
+          transition:border-color 0.12s,box-shadow 0.12s;letter-spacing:-.01em;
         }
         .ais-input::placeholder{color:var(--text-4);}
         .ais-input:focus{
