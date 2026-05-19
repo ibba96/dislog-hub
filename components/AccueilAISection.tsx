@@ -18,7 +18,7 @@ function renderMd(text: string) {
   while (i < lines.length) {
     const line = lines[i];
     if (/^---+$/.test(line.trim())) {
-      out.push(<hr key={i} style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.1)", margin: "8px 0" }} />);
+      out.push(<hr key={i} style={{ border:"none", borderTop:"1px solid var(--border)", margin:"8px 0" }}/>);
       i++; continue;
     }
     if (line.trim().startsWith("|")) {
@@ -26,324 +26,269 @@ function renderMd(text: string) {
       while (i < lines.length && lines[i].trim().startsWith("|")) { tl.push(lines[i]); i++; }
       const rows = tl.filter(r => !/^\|[-| :]+\|$/.test(r.trim()));
       out.push(
-        <table key={i} style={{ borderCollapse: "collapse", width: "100%", fontSize: 11, marginBottom: 4 }}>
-          <tbody>
-            {rows.map((r, ri) => (
-              <tr key={ri}>{r.split("|").filter((_,ci,a) => ci>0 && ci<a.length-1).map((cell, ci) => (
-                <td key={ci} style={{ padding: "2px 6px", borderBottom: "1px solid rgba(255,255,255,0.08)", color: ri===0 ? "#10b981" : "#cbd5e1" }}>{parseLine(cell.trim())}</td>
-              ))}</tr>
-            ))}
-          </tbody>
+        <table key={i} style={{ borderCollapse:"collapse", width:"100%", fontSize:11, marginBottom:4 }}>
+          <tbody>{rows.map((r, ri) => (
+            <tr key={ri}>{r.split("|").filter((_,ci,a)=>ci>0&&ci<a.length-1).map((cell,ci)=>(
+              <td key={ci} style={{ padding:"2px 6px", borderBottom:"1px solid var(--border2)", color: ri===0?"#10b981":"var(--text-2)" }}>
+                {parseLine(cell.trim())}
+              </td>
+            ))}</tr>
+          ))}</tbody>
         </table>
       );
       continue;
     }
-    const h3 = line.match(/^###\s+(.*)/);
-    if (h3) { out.push(<p key={i} style={{ fontWeight:700, fontSize:12, color:"#10b981", marginTop:8, marginBottom:2 }}>{parseLine(h3[1])}</p>); i++; continue; }
-    const h2 = line.match(/^##\s+(.*)/);
-    if (h2) { out.push(<p key={i} style={{ fontWeight:700, fontSize:13, color:"#e2e8f0", marginTop:6, marginBottom:2 }}>{parseLine(h2[1])}</p>); i++; continue; }
-    const h1 = line.match(/^#\s+(.*)/);
-    if (h1) { out.push(<p key={i} style={{ fontWeight:800, fontSize:14, color:"#ffffff", marginTop:6, marginBottom:2 }}>{parseLine(h1[1])}</p>); i++; continue; }
-    const li = line.match(/^[-*]\s+(.*)/);
-    if (li) { out.push(<p key={i} style={{ margin:"1px 0", paddingLeft:12 }}>• {parseLine(li[1])}</p>); i++; continue; }
-    if (line.trim() === "") { out.push(<br key={i} />); i++; continue; }
-    out.push(<p key={i} style={{ margin:"2px 0" }}>{parseLine(line)}</p>);
+    const h3 = line.match(/^###\s+(.*)/); if (h3) { out.push(<p key={i} style={{fontWeight:700,fontSize:11.5,color:"#10b981",marginTop:8,marginBottom:2}}>{parseLine(h3[1])}</p>); i++; continue; }
+    const h2 = line.match(/^##\s+(.*)/);  if (h2) { out.push(<p key={i} style={{fontWeight:700,fontSize:12.5,color:"var(--text-1)",marginTop:6,marginBottom:2}}>{parseLine(h2[1])}</p>); i++; continue; }
+    const h1 = line.match(/^#\s+(.*)/);   if (h1) { out.push(<p key={i} style={{fontWeight:800,fontSize:13,color:"var(--text-1)",marginTop:6,marginBottom:2}}>{parseLine(h1[1])}</p>); i++; continue; }
+    const li = line.match(/^[-*]\s+(.*)/); if (li) { out.push(<p key={i} style={{margin:"2px 0",paddingLeft:12,color:"var(--text-2)"}}>· {parseLine(li[1])}</p>); i++; continue; }
+    if (line.trim()==="") { out.push(<br key={i}/>); i++; continue; }
+    out.push(<p key={i} style={{margin:"2px 0",color:"var(--text-2)"}}>{parseLine(line)}</p>);
     i++;
   }
-  return <div style={{ fontSize:12, lineHeight:1.65 }}>{out}</div>;
+  return <div style={{fontSize:12,lineHeight:1.65}}>{out}</div>;
 }
 
-/* ── Types ── */
-interface Message { role: "user" | "assistant"; content: string; }
+interface Message { role:"user"|"assistant"; content:string; }
 
 const QUESTIONS = [
-  { icon: "⚡", label: "Mes décisions urgentes du jour" },
-  { icon: "📈", label: "Où investir en priorité ?" },
-  { icon: "🏭", label: "Quelle filiale arbitrer ce mois ?" },
-  { icon: "🌍", label: "Compétitivité Maroc vs région MENA" },
-  { icon: "📊", label: "Benchmark vs secteur national" },
-  { icon: "🛡️", label: "Risques macro à surveiller" },
+  "Mes décisions urgentes du jour",
+  "Où investir en priorité ce mois ?",
+  "Quelle filiale arbitrer ou restructurer ?",
+  "Compétitivité Maroc vs région MENA",
+  "Benchmark vs secteur national",
+  "Risques macro à surveiller",
 ];
 
 export function AccueilAISection() {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([{
-    role: "assistant",
-    content: "Bonjour Excellence. Je suis connecté à l'ensemble des données du Groupe Dislog Belkhyat en temps réel — KPIs, alertes, Baromètre 2025 et macro DEPF. Que souhaitez-vous analyser aujourd'hui ?",
+  const [open,    setOpen]    = useState(false);
+  const [messages,setMessages]= useState<Message[]>([{
+    role:"assistant",
+    content:"Bonjour Excellence. Je suis connecté à l'ensemble des données du Groupe Dislog Belkhyat en temps réel — KPIs, alertes, Baromètre Industrie 2025 et indicateurs macro DEPF. Que souhaitez-vous analyser ?",
   }]);
-  const [input, setInput] = useState("");
+  const [input,   setInput]   = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
-
-  useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 80);
-  }, [open]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages, loading]);
+  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 80); }, [open]);
 
   async function send(text?: string) {
     const q = (text ?? input).trim();
     if (!q || loading) return;
     setInput("");
     if (!open) setOpen(true);
-    setMessages(m => [...m, { role: "user", content: q }]);
+    setMessages(m => [...m, { role:"user", content:q }]);
     setLoading(true);
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: q }),
-      });
+      const res  = await fetch("/api/chat", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ message:q }) });
       const data = await res.json();
-      setMessages(m => [...m, { role: "assistant", content: data.reply ?? "Pas de réponse." }]);
+      setMessages(m => [...m, { role:"assistant", content: data.reply ?? "Pas de réponse." }]);
     } catch {
-      setMessages(m => [...m, { role: "assistant", content: "Erreur de connexion. Veuillez réessayer." }]);
-    } finally {
-      setLoading(false);
-    }
+      setMessages(m => [...m, { role:"assistant", content:"Erreur de connexion. Veuillez réessayer." }]);
+    } finally { setLoading(false); }
   }
 
   return (
     <>
-      {/* ── Chat card ── */}
-      <div className="stripe-card ai-section-card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="ais-card">
 
-        {/* Header — always visible */}
-        <div className="ai-sec-header">
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <div className="ai-avatar-ring">
-              <div className="ai-avatar-inner">M</div>
-              <span className="ai-online-dot" />
-            </div>
+        {/* Header */}
+        <div className="ais-header">
+          <div className="ais-brand">
+            <div className="ais-avatar">M</div>
             <div>
-              <div style={{ fontSize:13, fontWeight:700, color:"var(--text-1)", lineHeight:1.2 }}>Moncef AI</div>
-              <div style={{ fontSize:11, color:"#10b981", fontWeight:500 }}>Connecté · Données temps réel</div>
+              <p className="ais-name">Moncef AI</p>
+              <p className="ais-status">Connecté · Données temps réel</p>
             </div>
           </div>
-          {open ? (
-            <button className="ai-back-btn" onClick={() => setOpen(false)}>✕ Réduire</button>
-          ) : (
-            <button className="ai-open-btn-pill" onClick={() => setOpen(true)}>💬 Discuter</button>
-          )}
+          {open
+            ? <button className="ais-btn-ghost" onClick={() => setOpen(false)}>Réduire</button>
+            : <button className="ais-btn-primary" onClick={() => setOpen(true)}>Discuter</button>
+          }
         </div>
 
-        {/* Chat messages — visible when open */}
+        {/* Chat messages */}
         {open && (
-          <div className="ai-messages-area">
+          <div className="ais-messages">
             {messages.map((m, i) => (
-              <div key={i} className={`ai-msg-row ${m.role}`}>
-                {m.role === "assistant" && <div className="ai-msg-avatar-sm">M</div>}
-                <div className={`ai-bubble ${m.role}`}>
-                  {m.role === "assistant" ? renderMd(m.content) : m.content}
+              <div key={i} className={`ais-msg-row ${m.role}`}>
+                {m.role==="assistant" && <div className="ais-msg-av">M</div>}
+                <div className={`ais-bubble ${m.role}`}>
+                  {m.role==="assistant" ? renderMd(m.content) : m.content}
                 </div>
               </div>
             ))}
             {loading && (
-              <div className="ai-msg-row assistant">
-                <div className="ai-msg-avatar-sm">M</div>
-                <div className="ai-bubble assistant" style={{ display:"flex", alignItems:"center", gap:4, padding:"10px 12px" }}>
-                  <span className="typing-dot" style={{ animationDelay:"0ms" }} />
-                  <span className="typing-dot" style={{ animationDelay:"160ms" }} />
-                  <span className="typing-dot" style={{ animationDelay:"320ms" }} />
+              <div className="ais-msg-row assistant">
+                <div className="ais-msg-av">M</div>
+                <div className="ais-bubble assistant" style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:5}}>
+                  <span className="ais-dot" style={{animationDelay:"0ms"}}/>
+                  <span className="ais-dot" style={{animationDelay:"160ms"}}/>
+                  <span className="ais-dot" style={{animationDelay:"320ms"}}/>
                 </div>
               </div>
             )}
-            <div ref={bottomRef} />
+            <div ref={bottomRef}/>
           </div>
         )}
 
-        {/* Question chips — visible when closed */}
+        {/* Question chips — shown when closed */}
         {!open && (
-          <div className="ai-chips-area">
-            <p className="ai-chips-hint">Cliquez une question ou tapez la vôtre →</p>
-            <div className="ai-chips-list">
-              {QUESTIONS.map((q, i) => (
-                <button key={i} className="ai-question-chip" onClick={() => send(q.label)}>
-                  <span className="ai-chip-icon">{q.icon}</span>
-                  <span className="ai-chip-label">{q.label}</span>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ marginLeft:"auto", flexShrink:0, opacity:0.35 }}>
-                    <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                  </svg>
-                </button>
-              ))}
-            </div>
+          <div className="ais-chips">
+            <p className="ais-chips-label">Questions fréquentes</p>
+            {QUESTIONS.map((q, i) => (
+              <button key={i} className="ais-chip" onClick={() => send(q)}>
+                <span className="ais-chip-arrow">→</span>
+                <span className="ais-chip-text">{q}</span>
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Input — always visible */}
-        <div className="ai-input-bar">
+        {/* Input bar — always visible */}
+        <div className="ais-input-bar">
           <input
             ref={inputRef}
-            className="ai-text-input"
+            className="ais-input"
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder={open ? "Répondez ou posez une nouvelle question…" : "Posez votre question à Moncef AI…"}
-            onFocus={() => { if (!open && input.length > 0) setOpen(true); }}
+            onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder={open ? "Posez une question…" : "Ou écrivez directement votre question…"}
           />
-          <button
-            className="ai-send-btn"
-            onClick={() => send()}
-            disabled={!input.trim() || loading}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <button className="ais-send" onClick={() => send()} disabled={!input.trim()||loading} aria-label="Envoyer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         </div>
       </div>
 
-      {/* ── CSS ── */}
       <style>{`
-        .ai-section-card {
+        .ais-card {
+          background:var(--bg-panel);border:1px solid var(--border);
+          border-radius:10px;overflow:hidden;box-shadow:var(--shadow-card);
           display:flex;flex-direction:column;
-          border:1px solid var(--border);border-radius:10px;
-          background:var(--bg-panel);
-          box-shadow:var(--shadow-card);
-          transition:box-shadow 0.15s;
+          font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+          -webkit-font-smoothing:antialiased;
         }
 
-        .ai-sec-header {
+        /* Header */
+        .ais-header {
           display:flex;align-items:center;justify-content:space-between;
-          padding:14px 16px;
-          border-bottom:1px solid var(--border);
-          flex-shrink:0;
+          padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;
         }
-
-        .ai-avatar-ring {
-          position:relative;width:36px;height:36px;flex-shrink:0;
-        }
-        .ai-avatar-inner {
-          width:36px;height:36px;border-radius:50%;
+        .ais-brand    { display:flex;align-items:center;gap:10px; }
+        .ais-avatar {
+          width:34px;height:34px;border-radius:50%;flex-shrink:0;
           background:linear-gradient(135deg,#10b981,#059669);
           display:flex;align-items:center;justify-content:center;
-          font-size:13px;font-weight:800;color:white;
+          font-size:12px;font-weight:800;color:#fff;letter-spacing:-.01em;
+          box-shadow:0 0 0 2.5px var(--bg-panel), 0 0 0 4px rgba(16,185,129,0.25);
         }
-        .ai-online-dot {
-          position:absolute;bottom:1px;right:1px;
-          width:9px;height:9px;border-radius:50%;
-          background:#10b981;border:2px solid var(--bg-panel);
-          animation:blink 2s ease-in-out infinite;
-        }
+        .ais-name   { font-size:13px;font-weight:700;color:var(--text-1);line-height:1.2;margin:0;letter-spacing:-.01em; }
+        .ais-status { font-size:11px;color:#10b981;font-weight:500;margin:2px 0 0;line-height:1; }
 
-        .ai-open-btn-pill {
-          padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;
+        .ais-btn-primary {
+          padding:5px 13px;border-radius:6px;font-size:12px;font-weight:600;
           background:linear-gradient(135deg,#10b981,#059669);
-          border:none;color:white;cursor:pointer;
-          box-shadow:0 2px 8px rgba(16,185,129,0.3);
-          transition:all 0.15s;
+          border:none;color:#fff;cursor:pointer;letter-spacing:-.01em;
+          box-shadow:0 1px 4px rgba(16,185,129,0.3);transition:opacity 0.12s;
         }
-        .ai-open-btn-pill:hover { opacity:0.9;box-shadow:0 3px 12px rgba(16,185,129,0.4); }
-
-        .ai-back-btn {
-          padding:5px 10px;border-radius:6px;font-size:12px;font-weight:500;
+        .ais-btn-primary:hover{opacity:.9;}
+        .ais-btn-ghost {
+          padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;
           background:var(--bg-card);border:1px solid var(--border);
-          color:var(--text-3);cursor:pointer;
-          transition:all 0.15s;
+          color:var(--text-3);cursor:pointer;transition:color 0.12s,border-color 0.12s;
+          letter-spacing:-.01em;
         }
-        .ai-back-btn:hover { color:var(--text-1);border-color:var(--accent); }
+        .ais-btn-ghost:hover{color:var(--text-1);border-color:var(--accent);}
 
         /* Messages */
-        .ai-messages-area {
-          flex:1;overflow-y:auto;padding:12px 14px;
+        .ais-messages {
+          overflow-y:auto;padding:14px;
           display:flex;flex-direction:column;gap:10px;
-          max-height:320px;min-height:180px;
+          max-height:300px;min-height:160px;
           background:var(--bg-deep);
         }
-        .ai-msg-row {
-          display:flex;gap:8px;align-items:flex-start;
-        }
-        .ai-msg-row.user { flex-direction:row-reverse; }
-        .ai-msg-avatar-sm {
-          width:24px;height:24px;border-radius:50%;flex-shrink:0;
+        .ais-msg-row{display:flex;gap:8px;align-items:flex-start;}
+        .ais-msg-row.user{flex-direction:row-reverse;}
+        .ais-msg-av {
+          width:22px;height:22px;border-radius:50%;flex-shrink:0;
           background:linear-gradient(135deg,#10b981,#059669);
           display:flex;align-items:center;justify-content:center;
-          font-size:10px;font-weight:800;color:white;margin-top:2px;
+          font-size:9.5px;font-weight:800;color:#fff;margin-top:2px;
         }
-        .ai-bubble {
-          max-width:85%;padding:9px 12px;border-radius:10px;
-          font-size:12px;line-height:1.6;
+        .ais-bubble {
+          max-width:86%;padding:9px 12px;border-radius:9px;
+          font-size:12px;line-height:1.65;
         }
-        .ai-bubble.assistant {
-          background:var(--bg-card);
-          border:1px solid var(--border);
-          color:var(--text-2);
-          border-top-left-radius:2px;
+        .ais-bubble.assistant {
+          background:var(--bg-card);border:1px solid var(--border);
+          color:var(--text-2);border-top-left-radius:2px;
         }
-        .ai-bubble.user {
-          background:rgba(16,185,129,0.12);
-          border:1px solid rgba(16,185,129,0.25);
-          color:var(--text-1);
-          border-top-right-radius:2px;
+        .ais-bubble.user {
+          background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.22);
+          color:var(--text-1);border-top-right-radius:2px;
+          font-size:12.5px;
         }
-
-        /* Typing animation */
-        .typing-dot {
-          display:inline-block;width:6px;height:6px;border-radius:50%;
-          background:#10b981;
-          animation:typingBounce 1s ease-in-out infinite;
+        .ais-dot {
+          display:inline-block;width:5px;height:5px;border-radius:50%;
+          background:#10b981;animation:aisDot 1s ease-in-out infinite;
         }
-        @keyframes typingBounce{0%,100%{transform:translateY(0);opacity:0.4}50%{transform:translateY(-4px);opacity:1}}
+        @keyframes aisDot{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-4px);opacity:1}}
 
         /* Chips */
-        .ai-chips-area {
-          padding:12px 14px 8px;
-          border-bottom:1px solid var(--border);
+        .ais-chips{padding:12px 14px 8px;border-bottom:1px solid var(--border);}
+        .ais-chips-label {
+          font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+          color:var(--text-4);margin:0 0 8px;
         }
-        .ai-chips-hint {
-          font-size:11px;color:var(--text-4);margin:0 0 8px;font-weight:500;
+        .ais-chip {
+          display:flex;align-items:baseline;gap:8px;width:100%;
+          padding:8px 10px;border-radius:6px;margin-bottom:4px;
+          background:transparent;border:1px solid var(--border2);
+          cursor:pointer;text-align:left;transition:all 0.1s;
         }
-        .ai-chips-list { display:flex;flex-direction:column;gap:5px; }
-        .ai-question-chip {
-          display:flex;align-items:center;gap:9px;
-          padding:9px 11px;border-radius:7px;
-          background:var(--bg-card);border:1px solid var(--border2);
-          font-size:12.5px;color:var(--text-2);
-          cursor:pointer;text-align:left;width:100%;
-          transition:all 0.12s;
+        .ais-chip:hover {
+          background:var(--bg-card);border-color:rgba(16,185,129,0.3);
+          box-shadow:0 0 0 3px rgba(16,185,129,0.05);
         }
-        .ai-question-chip:hover {
-          background:var(--bg-card2);border-color:rgba(16,185,129,0.35);
-          color:var(--text-1);
-          box-shadow:0 0 0 3px rgba(16,185,129,0.06);
-        }
-        .ai-chip-icon { font-size:14px;flex-shrink:0; }
-        .ai-chip-label { flex:1;text-align:left; }
+        .ais-chip:last-child{margin-bottom:0;}
+        .ais-chip-arrow{font-size:11px;color:#10b981;flex-shrink:0;font-weight:700;}
+        .ais-chip-text {font-size:12.5px;color:var(--text-2);line-height:1.4;}
+        .ais-chip:hover .ais-chip-text{color:var(--text-1);}
 
         /* Input bar */
-        .ai-input-bar {
-          display:flex;align-items:center;gap:8px;
-          padding:10px 12px;
-          border-top:1px solid var(--border);
-          flex-shrink:0;
+        .ais-input-bar {
+          display:flex;align-items:center;gap:8px;padding:10px 12px;
+          border-top:1px solid var(--border);flex-shrink:0;
         }
-        .ai-text-input {
-          flex:1;background:var(--bg-card);
-          border:1px solid var(--border2);
-          border-radius:7px;padding:8px 12px;
-          font-size:13px;color:var(--text-1);
-          outline:none;
-          transition:border-color 0.15s,box-shadow 0.15s;
+        .ais-input {
+          flex:1;background:var(--bg-card);border:1px solid var(--border2);
+          border-radius:6px;padding:7px 11px;font-size:13px;
+          color:var(--text-1);outline:none;
+          font-family:'Inter',-apple-system,sans-serif;
+          transition:border-color 0.12s,box-shadow 0.12s;
+          letter-spacing:-.01em;
         }
-        .ai-text-input::placeholder { color:var(--text-4); }
-        .ai-text-input:focus {
-          border-color:rgba(16,185,129,0.5);
-          box-shadow:0 0 0 3px rgba(16,185,129,0.1);
+        .ais-input::placeholder{color:var(--text-4);}
+        .ais-input:focus{
+          border-color:rgba(16,185,129,0.45);
+          box-shadow:0 0 0 3px rgba(16,185,129,0.08);
         }
-        .ai-send-btn {
-          width:34px;height:34px;border-radius:7px;flex-shrink:0;
+        .ais-send {
+          width:32px;height:32px;border-radius:6px;flex-shrink:0;
           background:linear-gradient(135deg,#10b981,#059669);
-          border:none;color:white;cursor:pointer;
+          border:none;color:#fff;cursor:pointer;
           display:flex;align-items:center;justify-content:center;
-          box-shadow:0 2px 6px rgba(16,185,129,0.3);
-          transition:all 0.15s;
+          box-shadow:0 1px 4px rgba(16,185,129,0.25);
+          transition:opacity 0.12s,box-shadow 0.12s;
         }
-        .ai-send-btn:hover:not(:disabled) { opacity:0.9;box-shadow:0 3px 10px rgba(16,185,129,0.4); }
-        .ai-send-btn:disabled { opacity:0.3;cursor:not-allowed; }
+        .ais-send:hover:not(:disabled){opacity:.9;box-shadow:0 2px 8px rgba(16,185,129,0.35);}
+        .ais-send:disabled{opacity:.28;cursor:not-allowed;}
       `}</style>
     </>
   );
