@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 /* ── Markdown renderer ── */
 function renderMd(text: string) {
@@ -60,27 +60,59 @@ const QUESTIONS = [
   "Risques macro a surveiller",
 ];
 
-export function AccueilAISection() {
-  const [open,    setOpen]    = useState(false);
-  const [messages,setMessages]= useState<Message[]>([{
-    role:"assistant",
-    content:"Bonjour Excellence. Je suis connecte a l'ensemble des donnees du Groupe Dislog Belkhyat en temps reel — KPIs, alertes, Barometre Industrie 2025 et indicateurs macro DEPF. Que souhaitez-vous analyser ?",
-  }]);
-  const [input,   setInput]   = useState("");
-  const [loading, setLoading] = useState(false);
+/* ── SpeechRecognition types ── */
+interface ISpeechRecognition extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror:  ((e: SpeechRecognitionErrorEvent) => void) | null;
+  onend:    (() => void) | null;
+}
+interface SpeechRecognitionEvent { results: SpeechRecognitionResultList; }
+interface SpeechRecognitionErrorEvent { error: string; }
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => ISpeechRecognition;
+    webkitSpeechRecognition?: new () => ISpeechRecognition;
+  }
+}
 
-  /* scroll the messages CONTAINER, not the page */
+export function AccueilAISection() {
+  const [open,     setOpen]     = useState(false);
+  const [messages, setMessages] = useState<Message[]>([{
+    role:"assistant",
+    content:"Bonjour Excellence. Je suis connecte a l'ensemble des donnees du Groupe Dislog Belkhyat en temps reel. Posez votre question ou parlez directement.",
+  }]);
+  const [input,     setInput]     = useState("");
+  const [interim,   setInterim]   = useState("");   // live transcript while speaking
+  const [loading,   setLoading]   = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+
   const messagesRef = useRef<HTMLDivElement>(null);
   const cardRef     = useRef<HTMLDivElement>(null);
   const inputRef    = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
-  /* scroll to bottom inside the chat box whenever messages change */
+  /* check browser support */
+  useEffect(() => {
+    setVoiceSupported(
+      typeof window !== "undefined" &&
+      !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+    );
+  }, []);
+
+  /* scroll messages container (not the page) */
   useEffect(() => {
     const el = messagesRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, loading]);
 
-  /* when chat opens: scroll CARD into view (so user can see it), then focus input */
+  /* scroll card into view + focus input when chat opens */
   useEffect(() => {
     if (open) {
       setTimeout(() => {
@@ -90,10 +122,76 @@ export function AccueilAISection() {
     }
   }, [open]);
 
+  /* clean up recognition on unmount */
+  useEffect(() => {
+    return () => { recognitionRef.current?.stop(); };
+  }, []);
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    setListening(false);
+    setInterim("");
+  }, []);
+
+  const toggleVoice = useCallback(() => {
+    if (listening) { stopListening(); return; }
+
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    if (!SR) return;
+
+    const rec = new SR();
+    rec.lang = "fr-FR";
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      let finalText = "";
+      let interimText = "";
+      for (let i = 0; i < e.results.length; i++) {
+        const r = e.results[i];
+        if ((r as unknown as { isFinal: boolean }).isFinal) {
+          finalText += (r[0] as unknown as { transcript: string }).transcript;
+        } else {
+          interimText += (r[0] as unknown as { transcript: string }).transcript;
+        }
+      }
+      if (finalText) {
+        setInput(finalText.trim());
+        setInterim("");
+      } else {
+        setInterim(interimText);
+      }
+    };
+
+    rec.onerror = () => {
+      setListening(false);
+      setInterim("");
+    };
+
+    rec.onend = () => {
+      setListening(false);
+      setInterim("");
+      /* auto-send if we got text */
+      setTimeout(() => {
+        const inp = inputRef.current;
+        if (inp && inp.value.trim()) {
+          inp.form?.requestSubmit?.();
+        }
+      }, 120);
+    };
+
+    recognitionRef.current = rec;
+    rec.start();
+    setListening(true);
+    if (!open) setOpen(true);
+  }, [listening, open, stopListening]);
+
   async function send(text?: string) {
     const q = (text ?? input).trim();
     if (!q || loading) return;
     setInput("");
+    setInterim("");
     if (!open) setOpen(true);
     setMessages(m => [...m, { role:"user", content:q }]);
     setLoading(true);
@@ -112,6 +210,14 @@ export function AccueilAISection() {
     }
   }
 
+  /* called by the hidden form when voice auto-submits */
+  function handleFormSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    send();
+  }
+
+  const displayValue = interim || input;
+
   return (
     <>
       <div ref={cardRef} className="ais-card">
@@ -119,19 +225,35 @@ export function AccueilAISection() {
         {/* Header */}
         <div className="ais-header">
           <div className="ais-brand">
-            <div className="ais-avatar">M</div>
+            <div className="ais-avatar-wrap">
+              <div className="ais-avatar">M</div>
+              {listening && <span className="ais-listening-ring"/>}
+            </div>
             <div>
               <p className="ais-name">Moncef AI</p>
-              <p className="ais-status">Connecte · Donnees temps reel</p>
+              <p className="ais-status">
+                {listening ? "En ecoute..." : "Connecte · Donnees temps reel"}
+              </p>
             </div>
           </div>
           {open
-            ? <button className="ais-btn-ghost" onClick={() => setOpen(false)}>Reduire</button>
+            ? <button className="ais-btn-ghost" onClick={() => { setOpen(false); stopListening(); }}>Reduire</button>
             : <button className="ais-btn-primary" onClick={() => setOpen(true)}>Discuter</button>
           }
         </div>
 
-        {/* Chat messages — only when open */}
+        {/* Listening indicator banner */}
+        {listening && (
+          <div className="ais-listening-bar">
+            <span className="ais-pulse-dot"/>
+            <span className="ais-listening-label">
+              {interim ? `"${interim}"` : "Parlez maintenant..."}
+            </span>
+            <button className="ais-stop-btn" onClick={stopListening}>Annuler</button>
+          </div>
+        )}
+
+        {/* Chat messages */}
         {open && (
           <div className="ais-messages" ref={messagesRef}>
             {messages.map((m, i) => (
@@ -155,7 +277,7 @@ export function AccueilAISection() {
           </div>
         )}
 
-        {/* Question chips — only when closed */}
+        {/* Question chips */}
         {!open && (
           <div className="ais-chips">
             <p className="ais-chips-label">Questions frequentes</p>
@@ -168,20 +290,50 @@ export function AccueilAISection() {
           </div>
         )}
 
-        {/* Input bar — always visible */}
-        <div className="ais-input-bar">
+        {/* Input bar */}
+        <form className="ais-input-bar" onSubmit={handleFormSubmit}>
+          {voiceSupported && (
+            <button
+              type="button"
+              className={`ais-mic-btn ${listening ? "active" : ""}`}
+              onClick={toggleVoice}
+              title={listening ? "Arreter l'ecoute" : "Parler a Moncef AI"}
+            >
+              {listening ? (
+                /* waveform stop icon */
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="4" y="4" width="16" height="16" rx="2"/>
+                </svg>
+              ) : (
+                /* microphone icon */
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+              )}
+            </button>
+          )}
           <input
             ref={inputRef}
-            className="ais-input"
-            value={input}
-            onChange={e => setInput(e.target.value)}
+            className={`ais-input ${interim ? "interim" : ""}`}
+            value={displayValue}
+            onChange={e => { if (!interim) setInput(e.target.value); }}
             onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder={open ? "Posez une question..." : "Ou ecrivez directement votre question..."}
+            placeholder={
+              listening
+                ? "Parlez, je vous ecoute..."
+                : open
+                  ? "Posez une question..."
+                  : "Ou ecrivez directement votre question..."
+            }
+            readOnly={listening}
           />
           <button
+            type="submit"
             className="ais-send"
-            onClick={() => send()}
-            disabled={!input.trim()||loading}
+            disabled={!displayValue.trim() || loading || listening}
             aria-label="Envoyer"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -189,18 +341,14 @@ export function AccueilAISection() {
               <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-        </div>
+        </form>
       </div>
 
       <style>{`
         .ais-card {
-          background:var(--bg-panel);
-          border:1px solid var(--border);
-          border-radius:10px;
-          overflow:hidden;
-          box-shadow:var(--shadow-card);
-          display:flex;
-          flex-direction:column;
+          background:var(--bg-panel);border:1px solid var(--border);
+          border-radius:10px;overflow:hidden;box-shadow:var(--shadow-card);
+          display:flex;flex-direction:column;
           font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
           -webkit-font-smoothing:antialiased;
         }
@@ -210,23 +358,34 @@ export function AccueilAISection() {
           display:flex;align-items:center;justify-content:space-between;
           padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;
         }
-        .ais-brand    { display:flex;align-items:center;gap:10px; }
+        .ais-brand { display:flex;align-items:center;gap:10px; }
+        .ais-avatar-wrap { position:relative;width:34px;height:34px;flex-shrink:0; }
         .ais-avatar {
-          width:34px;height:34px;border-radius:50%;flex-shrink:0;
+          width:34px;height:34px;border-radius:50%;
           background:linear-gradient(135deg,#10b981,#059669);
           display:flex;align-items:center;justify-content:center;
-          font-size:12px;font-weight:800;color:#fff;letter-spacing:-.01em;
+          font-size:12px;font-weight:800;color:#fff;
           box-shadow:0 0 0 2.5px var(--bg-panel), 0 0 0 4px rgba(16,185,129,0.2);
+          position:relative;z-index:1;
+        }
+        .ais-listening-ring {
+          position:absolute;inset:-4px;border-radius:50%;
+          border:2px solid #10b981;
+          animation:aisRingPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes aisRingPulse{
+          0%{transform:scale(1);opacity:1}
+          100%{transform:scale(1.5);opacity:0}
         }
         .ais-name   { font-size:13px;font-weight:700;color:var(--text-1);line-height:1.2;margin:0;letter-spacing:-.01em; }
-        .ais-status { font-size:11px;color:#10b981;font-weight:500;margin:2px 0 0;line-height:1; }
+        .ais-status { font-size:11px;font-weight:500;margin:2px 0 0;line-height:1;
+          color:#10b981;transition:color 0.2s; }
 
         .ais-btn-primary {
           padding:5px 13px;border-radius:6px;font-size:12px;font-weight:600;
           background:linear-gradient(135deg,#10b981,#059669);
           border:none;color:#fff;cursor:pointer;letter-spacing:-.01em;
-          box-shadow:0 1px 4px rgba(16,185,129,0.3);transition:opacity 0.12s;
-          white-space:nowrap;
+          box-shadow:0 1px 4px rgba(16,185,129,0.3);transition:opacity 0.12s;white-space:nowrap;
         }
         .ais-btn-primary:hover{opacity:.9;}
         .ais-btn-ghost {
@@ -237,14 +396,36 @@ export function AccueilAISection() {
         }
         .ais-btn-ghost:hover{color:var(--text-1);border-color:var(--accent);}
 
-        /* Messages — overflow-y:auto so ONLY this box scrolls, not the page */
-        .ais-messages {
-          overflow-y:auto;
-          padding:14px;
-          display:flex;flex-direction:column;gap:10px;
-          height:320px;          /* fixed height — no layout shift */
-          background:var(--bg-deep);
+        /* Listening banner */
+        .ais-listening-bar {
+          display:flex;align-items:center;gap:10px;
+          padding:9px 16px;
+          background:rgba(16,185,129,0.06);
+          border-bottom:1px solid rgba(16,185,129,0.2);
           flex-shrink:0;
+        }
+        .ais-pulse-dot {
+          width:8px;height:8px;border-radius:50%;flex-shrink:0;
+          background:#10b981;
+          animation:aisPulseDot 1s ease-in-out infinite;
+        }
+        @keyframes aisPulseDot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:.6}}
+        .ais-listening-label {
+          flex:1;font-size:12px;color:var(--text-2);font-style:italic;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+        }
+        .ais-stop-btn {
+          font-size:11px;font-weight:600;color:#ef4444;background:none;border:none;
+          cursor:pointer;padding:2px 0;flex-shrink:0;
+          transition:opacity 0.1s;
+        }
+        .ais-stop-btn:hover{opacity:.7;}
+
+        /* Messages */
+        .ais-messages {
+          overflow-y:auto;padding:14px;
+          display:flex;flex-direction:column;gap:10px;
+          height:320px;background:var(--bg-deep);flex-shrink:0;
         }
         .ais-messages::-webkit-scrollbar{width:3px;}
         .ais-messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
@@ -258,8 +439,7 @@ export function AccueilAISection() {
           font-size:9.5px;font-weight:800;color:#fff;margin-top:2px;
         }
         .ais-bubble {
-          max-width:86%;padding:9px 12px;border-radius:9px;
-          font-size:12px;line-height:1.65;
+          max-width:86%;padding:9px 12px;border-radius:9px;font-size:12px;line-height:1.65;
         }
         .ais-bubble.assistant {
           background:var(--bg-card);border:1px solid var(--border);
@@ -287,13 +467,10 @@ export function AccueilAISection() {
           background:transparent;border:1px solid var(--border2);
           cursor:pointer;text-align:left;transition:all 0.1s;
         }
-        .ais-chip:hover {
-          background:var(--bg-card);border-color:rgba(16,185,129,0.3);
-          box-shadow:0 0 0 3px rgba(16,185,129,0.05);
-        }
+        .ais-chip:hover{background:var(--bg-card);border-color:rgba(16,185,129,0.3);box-shadow:0 0 0 3px rgba(16,185,129,0.05);}
         .ais-chip:last-child{margin-bottom:0;}
         .ais-chip-arrow{font-size:11px;color:#10b981;flex-shrink:0;font-weight:700;}
-        .ais-chip-text {font-size:12.5px;color:var(--text-2);line-height:1.4;}
+        .ais-chip-text{font-size:12.5px;color:var(--text-2);line-height:1.4;}
         .ais-chip:hover .ais-chip-text{color:var(--text-1);}
 
         /* Input bar */
@@ -301,6 +478,26 @@ export function AccueilAISection() {
           display:flex;align-items:center;gap:8px;
           padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;
         }
+
+        /* Mic button */
+        .ais-mic-btn {
+          width:32px;height:32px;border-radius:6px;flex-shrink:0;
+          background:var(--bg-card);border:1px solid var(--border);
+          color:var(--text-3);cursor:pointer;
+          display:flex;align-items:center;justify-content:center;
+          transition:all 0.15s;
+        }
+        .ais-mic-btn:hover{color:var(--text-1);border-color:rgba(16,185,129,0.4);}
+        .ais-mic-btn.active {
+          background:rgba(16,185,129,0.1);
+          border-color:rgba(16,185,129,0.5);
+          color:#10b981;
+          box-shadow:0 0 0 3px rgba(16,185,129,0.1);
+          animation:aisMicPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes aisMicPulse{0%,100%{box-shadow:0 0 0 3px rgba(16,185,129,0.1)}50%{box-shadow:0 0 0 5px rgba(16,185,129,0.15)}}
+
+        /* Input */
         .ais-input {
           flex:1;background:var(--bg-card);border:1px solid var(--border2);
           border-radius:6px;padding:7px 11px;font-size:13px;
@@ -308,11 +505,14 @@ export function AccueilAISection() {
           font-family:'Inter',-apple-system,sans-serif;
           transition:border-color 0.12s,box-shadow 0.12s;letter-spacing:-.01em;
         }
+        .ais-input.interim{color:#10b981;font-style:italic;}
         .ais-input::placeholder{color:var(--text-4);}
-        .ais-input:focus{
+        .ais-input:focus:not([readonly]){
           border-color:rgba(16,185,129,0.45);
           box-shadow:0 0 0 3px rgba(16,185,129,0.08);
         }
+
+        /* Send button */
         .ais-send {
           width:32px;height:32px;border-radius:6px;flex-shrink:0;
           background:linear-gradient(135deg,#10b981,#059669);
