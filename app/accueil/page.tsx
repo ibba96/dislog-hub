@@ -1,373 +1,466 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { JarvisClock } from "@/components/JarvisClock";
+import { AccueilThemeToggle } from "@/components/AccueilThemeToggle";
 
 const PERIOD = "2026-05";
 const PREV   = "2026-04";
-
 export const dynamic = "force-dynamic";
 
 export default async function AccueilPage() {
   const [entities, current, prev] = await Promise.all([
     prisma.entity.findMany({ include: { division: true } }),
-    prisma.kpiEntry.findMany({ where: { period: PERIOD }, include: { kpiDef: true } }),
+    prisma.kpiEntry.findMany({ where: { period: PERIOD } }),
     prisma.kpiEntry.findMany({ where: { period: PREV } }),
   ]);
 
-  const val = (eid: string, kid: string, src: typeof prev = prev) =>
-    src.find(e => e.entityId === eid && e.kpiDefId === kid)?.value ?? null;
   const valC = (eid: string, kid: string) =>
     current.find(e => e.entityId === eid && e.kpiDefId === kid)?.value ?? null;
+  const valP = (eid: string, kid: string) =>
+    prev.find(e => e.entityId === eid && e.kpiDefId === kid)?.value ?? null;
   const tgt = (eid: string, kid: string) =>
     current.find(e => e.entityId === eid && e.kpiDefId === kid)?.target ?? null;
 
-  // Group totals
   const totalCA    = current.filter(e => e.kpiDefId === "ca").reduce((s,e) => s + e.value, 0);
   const totalMarge = current.filter(e => e.kpiDefId === "marge").reduce((s,e) => s + e.value, 0);
-  const prevTotalCA = prev.filter(e => e.kpiDefId === "ca").reduce((s,e) => s + e.value, 0);
-  const caEvol = prevTotalCA ? ((totalCA - prevTotalCA) / prevTotalCA * 100) : 0;
+  const prevCA     = prev.filter(e => e.kpiDefId === "ca").reduce((s,e) => s + e.value, 0);
+  const caEvol     = prevCA ? ((totalCA - prevCA) / prevCA * 100) : 0;
 
-  // Build alerts
-  const alerts: { entity: string; slug: string; label: string; severity: "critical"|"warning" }[] = [];
+  const alerts: { entity: string; slug: string; label: string; sev: "critical"|"warning" }[] = [];
   for (const e of entities) {
     const ca = valC(e.id, "ca");
-    const caTarget = tgt(e.id, "ca");
-    const prevCA = val(e.id, "ca");
-    const taux = valC(e.id, "taux-service");
-    const tauxT = tgt(e.id, "taux-service");
+    const ct = tgt(e.id, "ca");
+    const pc = valP(e.id, "ca");
+    const tx = valC(e.id, "taux-service");
+    const tt = tgt(e.id, "taux-service");
     if (!ca) continue;
-    if (caTarget && ca < caTarget * 0.80) {
-      alerts.push({ entity: e.name, slug: e.slug, label: `CA à ${Math.round(ca/caTarget*100)}% de l'objectif`, severity: "critical" });
-    } else if (caTarget && ca < caTarget * 0.93) {
-      alerts.push({ entity: e.name, slug: e.slug, label: `CA à ${Math.round(ca/caTarget*100)}% de l'objectif`, severity: "warning" });
-    }
-    if (prevCA && ca < prevCA * 0.92) {
-      alerts.push({ entity: e.name, slug: e.slug, label: `CA en baisse de ${Math.abs(Math.round((ca-prevCA)/prevCA*100))}% vs mois précédent`, severity: "critical" });
-    }
-    if (taux && tauxT && taux < tauxT) {
-      alerts.push({ entity: e.name, slug: e.slug, label: `Taux de service dégradé (${taux.toFixed(1)}%)`, severity: "warning" });
-    }
+    if (ct && ca < ct * 0.80)  alerts.push({ entity: e.name, slug: e.slug, label: `CA à ${Math.round(ca/ct*100)}% de l'objectif`, sev: "critical" });
+    else if (ct && ca < ct * 0.93) alerts.push({ entity: e.name, slug: e.slug, label: `CA à ${Math.round(ca/ct*100)}% de l'objectif`, sev: "warning" });
+    if (pc && ca < pc * 0.92)  alerts.push({ entity: e.name, slug: e.slug, label: `CA −${Math.abs(Math.round((ca-pc)/pc*100))}% vs mois préc.`, sev: "critical" });
+    if (tx && tt && tx < tt)   alerts.push({ entity: e.name, slug: e.slug, label: `Taux service ${tx.toFixed(1)}% (obj. ${tt.toFixed(1)}%)`, sev: "warning" });
   }
 
-  // Top critical alert (for hero card)
-  const topAlert = alerts.filter(a => a.severity === "critical")[0] ?? alerts[0];
-  const critCount = alerts.filter(a => a.severity === "critical").length;
-  const warnCount = alerts.filter(a => a.severity === "warning").length;
+  const critCount  = alerts.filter(a => a.sev === "critical").length;
+  const warnCount  = alerts.filter(a => a.sev === "warning").length;
+  const topAlert   = alerts.find(a => a.sev === "critical") ?? alerts[0];
 
-  // Best performer
   const performers = entities.map(e => {
     const ca = valC(e.id, "ca") ?? 0;
-    const caT = tgt(e.id, "ca") ?? 0;
-    return { name: e.name, slug: e.slug, pct: caT ? ca/caT*100 : 0 };
+    const ct = tgt(e.id, "ca") ?? 0;
+    const pc = valP(e.id, "ca");
+    const evol = pc ? ((ca - pc) / pc * 100) : 0;
+    const pct  = ct ? ca / ct * 100 : 0;
+    return { name: e.name, slug: e.slug, ca, pct, evol };
   }).sort((a,b) => b.pct - a.pct);
-  const S = {
-    page: {
-      minHeight: "100vh",
-      background: "linear-gradient(160deg, #020810 0%, #040d1a 50%, #071428 100%)",
-      fontFamily: "-apple-system, BlinkMacSystemFont,'Segoe UI','Inter',sans-serif",
-      color: "#e2e8f0",
-      position: "relative" as const,
-      overflow: "auto" as const,
-    } as React.CSSProperties,
-    grid: {
-      position: "absolute" as const, inset: 0, pointerEvents: "none" as const,
-      backgroundImage: `linear-gradient(rgba(16,185,129,0.03) 1px, transparent 1px),linear-gradient(90deg, rgba(16,185,129,0.03) 1px, transparent 1px)`,
-      backgroundSize: "48px 48px",
-    } as React.CSSProperties,
-    inner: { position: "relative" as const, zIndex: 1, maxWidth: 900, margin: "0 auto", padding: "28px 24px 48px" } as React.CSSProperties,
-  };
 
   return (
-    <div style={S.page}>
-      <div style={S.grid} />
-      <div style={S.inner}>
-
-        {/* ── HEADER ── */}
-        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom: 32, flexWrap:"wrap", gap:16 }}>
-          <JarvisClock />
-          <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
-            <div style={{
-              display:"flex", alignItems:"center", gap:8, padding:"8px 16px",
-              background:"rgba(16,185,129,0.1)", border:"1px solid rgba(16,185,129,0.3)",
-              borderRadius:999, fontSize:12, color:"#10b981", fontWeight:600,
-            }}>
-              <span style={{ width:7,height:7,borderRadius:"50%",background:"#10b981",boxShadow:"0 0 8px #10b981",display:"inline-block" }}/>
+    <div className="accueil-root">
+      {/* ── TOP NAV ── */}
+      <nav className="accueil-nav">
+        <div className="accueil-nav-inner">
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div className="brand-logo">
+              <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
+                <path d="M8 24L16 8L24 24" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M11 19H21" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span className="brand-name">Dislog Hub</span>
+            <span className="brand-sep">/</span>
+            <span className="brand-sub">Tableau de bord</span>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div className="status-pill">
+              <span className="status-dot"/>
               Moncef AI actif
             </div>
-            <Link href="/war-room" style={{
-              display:"flex", alignItems:"center", gap:6, padding:"8px 16px",
-              background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)",
-              borderRadius:999, fontSize:12, color:"rgba(148,163,184,0.8)", textDecoration:"none",
-              fontWeight:600,
-            }}>
-              🗺 War Room
-            </Link>
+            <Link href="/war-room" className="nav-link-btn">War Room →</Link>
+            <AccueilThemeToggle />
+          </div>
+        </div>
+      </nav>
+
+      <main className="accueil-main">
+
+        {/* ── HEADER ── */}
+        <div className="accueil-header">
+          <JarvisClock />
+          <div className="header-badges">
+            {critCount > 0 && (
+              <div className="badge-critical">{critCount} critique{critCount>1?"s":""}</div>
+            )}
+            {warnCount > 0 && (
+              <div className="badge-warning">{warnCount} alerte{warnCount>1?"s":""}</div>
+            )}
           </div>
         </div>
 
-        {/* ── TABS ── */}
-        <div style={{ display:"flex", gap:8, marginBottom:28 }}>
+        {/* ── KPI STRIP ── */}
+        <div className="kpi-strip">
           {[
-            { label:"☀️  Briefing du groupe", active:true },
-            { label:`⚡ Urgences${critCount > 0 ? ` (${critCount})` : ""}`, active:false, href:"/war-room" },
-          ].map((tab,i) => (
-            tab.href
-              ? <Link key={i} href={tab.href} style={{
-                  padding:"10px 20px", borderRadius:999, fontSize:13, fontWeight:600,
-                  background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)",
-                  color:"rgba(148,163,184,0.7)", textDecoration:"none",
-                }}>
-                  {tab.label}
-                </Link>
-              : <button key={i} style={{
-                  padding:"10px 20px", borderRadius:999, fontSize:13, fontWeight:600,
-                  background: tab.active ? "linear-gradient(135deg,rgba(16,185,129,0.2),rgba(16,185,129,0.08))" : "rgba(255,255,255,0.04)",
-                  border: tab.active ? "1px solid rgba(16,185,129,0.4)" : "1px solid rgba(255,255,255,0.08)",
-                  color: tab.active ? "#10b981" : "rgba(148,163,184,0.7)",
-                  cursor:"pointer",
-                }}>
-                  {tab.label}
-                </button>
-          ))}
-        </div>
-
-        {/* ── HERO ALERT CARD ── */}
-        {topAlert && (
-          <div style={{
-            background:"rgba(8,14,26,0.7)", border:"1px solid rgba(239,68,68,0.3)",
-            borderRadius:16, padding:"24px", marginBottom:20,
-            backdropFilter:"blur(12px)",
-            boxShadow:"0 0 40px rgba(239,68,68,0.06)",
-          }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <span style={{ fontSize:18 }}>⚠️</span>
-                <div>
-                  <span style={{ fontSize:15, fontWeight:700, color:"#fbbf24" }}>
-                    {topAlert.entity} · Décision urgente requise
-                  </span>
-                </div>
-              </div>
-              <div style={{
-                padding:"6px 14px", borderRadius:8, fontSize:11, fontWeight:800,
-                background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.3)",
-                color:"#ef4444", letterSpacing:"0.06em",
-              }}>
-                ⚡ CRITIQUE
-              </div>
-            </div>
-
-            {/* 3 metrics */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:20 }}>
-              {[
-                { label:"ALERTE", value: topAlert.label, color:"#ef4444" },
-                { label:"FILIALES EN ROUGE", value: `${critCount} filiale${critCount>1?"s":""}`, color:"#ef4444" },
-                { label:"FILIALES EN ALERTE", value: `${warnCount} filiale${warnCount>1?"s":""}`, color:"#f59e0b" },
-              ].map((m,i) => (
-                <div key={i}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"rgba(148,163,184,0.5)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>{m.label}</div>
-                  <div style={{ fontSize:16, fontWeight:800, color:m.color }}>{m.value}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Alert list */}
-            <div style={{ marginBottom:20 }}>
-              {alerts.slice(0,3).map((a,i) => (
-                <div key={i} style={{
-                  display:"flex", alignItems:"center", gap:8, padding:"8px 0",
-                  borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                }}>
-                  <span style={{
-                    width:6, height:6, borderRadius:"50%", flexShrink:0,
-                    background: a.severity==="critical" ? "#ef4444" : "#f59e0b",
-                    boxShadow: `0 0 6px ${a.severity==="critical" ? "#ef4444" : "#f59e0b"}`,
-                  }}/>
-                  <span style={{ fontSize:13, color:"rgba(148,163,184,0.8)" }}>
-                    <strong style={{ color:"#e2e8f0" }}>{a.entity}</strong> — {a.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Actions */}
-            <div style={{ display:"flex", gap:12 }}>
-              <Link href={`/entites/${topAlert.slug}`} style={{
-                flex:1, padding:"11px 20px", borderRadius:10, fontSize:13, fontWeight:700,
-                background:"linear-gradient(135deg,#b45309,#92400e)", border:"none",
-                color:"#fde68a", textDecoration:"none", textAlign:"center" as const,
-                cursor:"pointer",
-              }}>
-                📋 Analyse détaillée
-              </Link>
-              <Link href="/war-room" style={{
-                flex:1, padding:"11px 20px", borderRadius:10, fontSize:13, fontWeight:600,
-                background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)",
-                color:"rgba(148,163,184,0.8)", textDecoration:"none", textAlign:"center" as const,
-                cursor:"pointer",
-              }}>
-                🗺 Vue consolidée
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* ── STATS ROW ── */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:20 }}>
-          {[
-            {
-              label:"CA GROUPE",
-              value: `${(totalCA/1e6).toFixed(0)}M MAD`,
-              sub: `${caEvol >= 0 ? "+" : ""}${caEvol.toFixed(1)}% vs mois préc.`,
-              color: caEvol >= 0 ? "#10b981" : "#ef4444",
-              icon:"📈",
-            },
-            {
-              label:"MARGE BRUTE",
-              value: `${(totalMarge/1e6).toFixed(0)}M MAD`,
-              sub: `${totalCA ? (totalMarge/totalCA*100).toFixed(1) : "-"}% du CA`,
-              color:"#818cf8",
-              icon:"💹",
-            },
-            {
-              label:"URGENCES ACTIVES",
-              value: String(critCount + warnCount),
-              sub: `${critCount} critique${critCount>1?"s":""} · ${warnCount} alerte${warnCount>1?"s":""}`,
-              color: critCount > 0 ? "#ef4444" : "#f59e0b",
-              icon:"🚨",
-            },
-          ].map((s,i) => (
-            <div key={i} style={{
-              background:"rgba(8,14,26,0.7)", border:"1px solid rgba(255,255,255,0.07)",
-              borderRadius:14, padding:"20px", backdropFilter:"blur(12px)",
-            }}>
-              <div style={{ fontSize:10, fontWeight:700, color:"rgba(148,163,184,0.5)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:12 }}>
-                {s.icon} {s.label}
-              </div>
-              <div style={{ fontSize:28, fontWeight:800, color:"#ffffff", letterSpacing:"-0.02em", marginBottom:4, fontVariantNumeric:"tabular-nums" }}>
-                {s.value}
-              </div>
-              <div style={{ fontSize:12, color:s.color, fontWeight:600 }}>{s.sub}</div>
+            { label:"CA Groupe", value:`${(totalCA/1e6).toFixed(0)} M MAD`,
+              delta:`${caEvol>=0?"+":""}${caEvol.toFixed(1)}% vs mois préc.`,
+              positive: caEvol >= 0 },
+            { label:"Marge brute", value:`${(totalMarge/1e6).toFixed(0)} M MAD`,
+              delta:`${totalCA?(totalMarge/totalCA*100).toFixed(1):"-"}% du CA`,
+              positive: true },
+            { label:"Filiales actives", value:"10",
+              delta:"Groupe Dislog Belkhyat", positive: true },
+            { label:"Urgences", value:String(critCount + warnCount),
+              delta:`${critCount} critique${critCount>1?"s":""} · ${warnCount} alerte${warnCount>1?"s":""}`,
+              positive: critCount === 0 },
+          ].map((k,i) => (
+            <div key={i} className="kpi-card">
+              <div className="kpi-label">{k.label}</div>
+              <div className="kpi-value">{k.value}</div>
+              <div className={`kpi-delta ${k.positive?"positive":"negative"}`}>{k.delta}</div>
             </div>
           ))}
         </div>
 
-        {/* ── BAROMETRE MACRO CARD ── */}
-        <div style={{
-          background:"rgba(8,14,26,0.7)", border:"1px solid rgba(99,91,255,0.2)",
-          borderRadius:14, padding:"20px 24px", marginBottom:20,
-          backdropFilter:"blur(12px)",
-        }}>
-          <div style={{ fontSize:11, fontWeight:700, color:"rgba(99,91,255,0.8)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:16 }}>
-            📊 Contexte — Baromètre Industrie Maroc 2025
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
-            {[
-              { label:"CA Industrie Maroc", value:"898 Mrd DH", delta:"+9,2%", color:"#10b981" },
-              { label:"Investissements", value:"89,7 Mrd DH", delta:"+30,2% 🔥 Record", color:"#f59e0b" },
-              { label:"Emplois industriels", value:"1 038 133", delta:"+4,3%", color:"#818cf8" },
-              { label:"Capital marocain", value:"70,2%", delta:"Souveraineté stable", color:"#10b981" },
-            ].map((m,i) => (
-              <div key={i} style={{ padding:"12px", background:"rgba(255,255,255,0.03)", borderRadius:10, border:"1px solid rgba(255,255,255,0.05)" }}>
-                <div style={{ fontSize:10, color:"rgba(148,163,184,0.5)", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.06em" }}>{m.label}</div>
-                <div style={{ fontSize:18, fontWeight:800, color:"#ffffff", marginBottom:2, letterSpacing:"-0.02em" }}>{m.value}</div>
-                <div style={{ fontSize:11, color:m.color, fontWeight:600 }}>{m.delta}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <div className="accueil-grid">
+          {/* LEFT COL */}
+          <div className="accueil-left">
 
-        {/* ── MONCEF AI SECTION ── */}
-        <div style={{
-          background:"rgba(8,14,26,0.7)", border:"1px solid rgba(16,185,129,0.2)",
-          borderRadius:14, padding:"20px 24px", marginBottom:20,
-          backdropFilter:"blur(12px)",
-        }}>
-          <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:20 }}>
-            <div style={{
-              width:52, height:52, borderRadius:"50%",
-              background:"linear-gradient(135deg,#065f46,#047857)",
-              border:"2px solid rgba(16,185,129,0.4)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:22, flexShrink:0,
-              boxShadow:"0 0 20px rgba(16,185,129,0.2)",
-            }}>🎙</div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:16, fontWeight:700, color:"#ffffff" }}>Parler à Moncef AI</div>
-              <div style={{ fontSize:12, color:"rgba(148,163,184,0.6)" }}>Données Dislog + Baromètre 2025 + Macro DEPF</div>
-            </div>
-            <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"rgba(148,163,184,0.4)" }}>
-              <span style={{ width:5,height:5,borderRadius:"50%",background:"#10b981",display:"inline-block" }}/>
-              En ligne
-            </div>
-          </div>
-
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:10 }}>
-            {[
-              { icon:"🌍", cat:"ÉCONOMIE", label:"Scène économique du jour" },
-              { icon:"⚡", cat:"ARBITRAGE", label:"Mes 3 décisions urgentes" },
-              { icon:"🌐", cat:"INTERNATIONAL", label:"Signaux géopolitiques MENA" },
-              { icon:"🛡", cat:"SOUVERAINETÉ", label:"Compétitivité vs Tunisie/Égypte" },
-              { icon:"📈", cat:"INVESTISSEMENT", label:"Où investir en priorité ?" },
-              { icon:"🏭", cat:"FILIALES", label:"Quelle filiale arbitrer ce mois ?" },
-            ].map((q,i) => (
-              <Link key={i} href={`/?q=${encodeURIComponent(q.label)}`} style={{
-                display:"block", padding:"14px 16px", borderRadius:10,
-                background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)",
-                textDecoration:"none", transition:"all 0.15s",
-              }}>
-                <div style={{ fontSize:9, fontWeight:700, color:"rgba(148,163,184,0.4)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>
-                  {q.icon} {q.cat}
-                </div>
-                <div style={{ fontSize:13, color:"rgba(226,232,240,0.85)", fontWeight:500 }}>{q.label}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* ── TOP PERFORMERS ── */}
-        <div style={{
-          background:"rgba(8,14,26,0.7)", border:"1px solid rgba(255,255,255,0.07)",
-          borderRadius:14, padding:"20px 24px",
-          backdropFilter:"blur(12px)",
-        }}>
-          <div style={{ fontSize:11, fontWeight:700, color:"rgba(148,163,184,0.5)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:16 }}>
-            🏆 Performance filiales — Mai 2026
-          </div>
-          <div style={{ display:"flex", flexDirection:"column" as const, gap:10 }}>
-            {performers.slice(0,5).map((p,i) => {
-              const color = p.pct >= 100 ? "#10b981" : p.pct >= 90 ? "#f59e0b" : "#ef4444";
-              const icon = p.pct >= 100 ? "🟢" : p.pct >= 90 ? "🟡" : "🔴";
-              return (
-                <Link key={p.slug} href={`/entites/${p.slug}`} style={{
-                  display:"flex", alignItems:"center", gap:14, padding:"10px 12px",
-                  borderRadius:10, background:"rgba(255,255,255,0.03)",
-                  border:"1px solid rgba(255,255,255,0.05)", textDecoration:"none",
-                }}>
-                  <span style={{ fontSize:16 }}>{icon}</span>
-                  <span style={{ flex:1, fontSize:13, color:"#e2e8f0", fontWeight:500 }}>{p.name}</span>
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{
-                      width:120, height:4, borderRadius:4,
-                      background:"rgba(255,255,255,0.06)", overflow:"hidden",
-                    }}>
-                      <div style={{
-                        height:"100%", borderRadius:4,
-                        width:`${Math.min(p.pct,100)}%`,
-                        background: color,
-                      }}/>
-                    </div>
-                    <span style={{ fontSize:12, fontWeight:700, color, minWidth:38, textAlign:"right" as const }}>
-                      {p.pct.toFixed(0)}%
-                    </span>
+            {/* ALERT CARD */}
+            {topAlert && (
+              <div className="alert-card">
+                <div className="alert-card-header">
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span className={`sev-dot ${topAlert.sev}`}/>
+                    <span className="alert-card-title">Urgences décisionnelles</span>
                   </div>
-                </Link>
-              );
-            })}
+                  <span className="alert-count-badge">{alerts.length}</span>
+                </div>
+                <div className="alert-list">
+                  {alerts.slice(0,5).map((a,i) => (
+                    <Link key={i} href={`/entites/${a.slug}`} className="alert-row">
+                      <span className={`sev-dot ${a.sev}`}/>
+                      <div style={{ flex:1 }}>
+                        <span className="alert-entity">{a.entity}</span>
+                        <span className="alert-label"> — {a.label}</span>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="alert-arrow">
+                        <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    </Link>
+                  ))}
+                </div>
+                <div className="alert-card-footer">
+                  <Link href="/war-room" className="alert-footer-link">Voir tous les signaux dans le War Room →</Link>
+                </div>
+              </div>
+            )}
+
+            {/* BAROMETRE CARD */}
+            <div className="stripe-card">
+              <div className="card-header">
+                <span className="card-title">Baromètre Industrie Maroc 2025</span>
+                <span className="card-badge indigo">Officiel</span>
+              </div>
+              <div className="macro-grid">
+                {[
+                  { label:"CA Industrie national", val:"898 Mrd DH", delta:"+9,2%", up:true },
+                  { label:"Investissements", val:"89,7 Mrd DH", delta:"+30,2% 🔥 Record", up:true },
+                  { label:"Emplois industriels", val:"1 038 133", delta:"+4,3%", up:true },
+                  { label:"Capital marocain", val:"70,2%", delta:"Souveraineté stable", up:true },
+                  { label:"Auto — CA sectoriel", val:"196 Mrd DH", delta:"#1 pour la 1ère fois", up:true },
+                  { label:"Inflation IPC (déc.2022)", val:"6,6%", delta:"↑ Pression marges", up:false },
+                ].map((m,i) => (
+                  <div key={i} className="macro-item">
+                    <div className="macro-item-label">{m.label}</div>
+                    <div className="macro-item-val">{m.val}</div>
+                    <div className={`macro-item-delta ${m.up?"positive":"negative"}`}>{m.delta}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COL */}
+          <div className="accueil-right">
+
+            {/* MONCEF AI */}
+            <div className="stripe-card">
+              <div className="card-header">
+                <span className="card-title">Moncef AI</span>
+                <span className="card-badge green">En ligne</span>
+              </div>
+              <p className="card-desc">
+                Connecté à vos données groupe + Baromètre 2025 + Macro DEPF.
+                Posez n&apos;importe quelle question.
+              </p>
+              <div className="ai-questions">
+                {[
+                  { icon:"⚡", label:"Mes décisions urgentes du jour" },
+                  { icon:"📈", label:"Où investir en priorité ?" },
+                  { icon:"🏭", label:"Quelle filiale arbitrer ce mois ?" },
+                  { icon:"🌍", label:"Compétitivité Maroc vs région MENA" },
+                  { icon:"📊", label:"Benchmark vs secteur national" },
+                  { icon:"🛡", label:"Risques macro à surveiller" },
+                ].map((q,i) => (
+                  <Link key={i} href={`/war-room`} className="ai-question-chip">
+                    <span>{q.icon}</span>
+                    <span>{q.label}</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginLeft:"auto", opacity:0.4 }}>
+                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* PERFORMANCES */}
+            <div className="stripe-card">
+              <div className="card-header">
+                <span className="card-title">Performance filiales</span>
+                <span className="card-subtitle">Mai 2026</span>
+              </div>
+              <div className="perf-list">
+                {performers.slice(0,6).map((p,i) => {
+                  const color = p.pct >= 100 ? "#10b981" : p.pct >= 90 ? "#f59e0b" : "#ef4444";
+                  const icon  = p.pct >= 100 ? "🟢" : p.pct >= 90 ? "🟡" : "🔴";
+                  return (
+                    <Link key={p.slug} href={`/entites/${p.slug}`} className="perf-row">
+                      <span style={{ fontSize:14 }}>{icon}</span>
+                      <span className="perf-name">{p.name}</span>
+                      <div className="perf-bar-wrap">
+                        <div className="perf-bar-bg">
+                          <div className="perf-bar-fill" style={{ width:`${Math.min(p.pct,100)}%`, background:color }}/>
+                        </div>
+                        <span className="perf-pct" style={{ color }}>{p.pct.toFixed(0)}%</span>
+                      </div>
+                      <span className={`perf-evol ${p.evol>=0?"positive":"negative"}`}>
+                        {p.evol>=0?"+":""}{p.evol.toFixed(1)}%
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+
           </div>
         </div>
+      </main>
 
-      </div>
+      <style>{`
+        /* ─── Root & theme ─── */
+        .accueil-root {
+          min-height:100vh;
+          background:var(--bg-deep);
+          color:var(--text-1);
+          font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
+          transition:background 0.2s,color 0.2s;
+        }
+
+        /* ─── Nav ─── */
+        .accueil-nav {
+          background:var(--bg-panel);
+          border-bottom:1px solid var(--border);
+          position:sticky;top:0;z-index:50;
+        }
+        .accueil-nav-inner {
+          max-width:1100px;margin:0 auto;
+          display:flex;align-items:center;justify-content:space-between;
+          padding:0 24px;height:56px;
+        }
+        .brand-logo {
+          width:30px;height:30px;border-radius:8px;
+          background:linear-gradient(135deg,#10b981,#059669);
+          display:flex;align-items:center;justify-content:center;
+          flex-shrink:0;
+        }
+        .brand-name { font-weight:700;font-size:14px;color:var(--text-1); }
+        .brand-sep  { color:var(--text-4);font-size:14px;margin:0 2px; }
+        .brand-sub  { font-size:13px;color:var(--text-3); }
+
+        .status-pill {
+          display:flex;align-items:center;gap:6px;
+          padding:5px 12px;border-radius:999px;
+          background:rgba(16,185,129,0.08);
+          border:1px solid rgba(16,185,129,0.2);
+          font-size:12px;font-weight:600;color:#10b981;
+        }
+        .status-dot {
+          width:6px;height:6px;border-radius:50%;
+          background:#10b981;
+          box-shadow:0 0 6px rgba(16,185,129,0.6);
+          animation:blink 2s ease-in-out infinite;
+        }
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+        .nav-link-btn {
+          padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;
+          background:var(--bg-card);border:1px solid var(--border);
+          color:var(--text-2);text-decoration:none;
+          transition:all 0.15s;
+        }
+        .nav-link-btn:hover { color:var(--text-1);border-color:var(--accent); }
+
+        /* ─── Main ─── */
+        .accueil-main {
+          max-width:1100px;margin:0 auto;
+          padding:32px 24px 60px;
+        }
+
+        /* ─── Header ─── */
+        .accueil-header {
+          display:flex;align-items:flex-end;justify-content:space-between;
+          margin-bottom:28px;flex-wrap:wrap;gap:12px;
+        }
+        .header-badges { display:flex;gap:8px;align-items:center; }
+        .badge-critical {
+          padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;
+          background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);
+          color:#ef4444;
+        }
+        .badge-warning {
+          padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;
+          background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);
+          color:#f59e0b;
+        }
+
+        /* ─── KPI Strip ─── */
+        .kpi-strip {
+          display:grid;grid-template-columns:repeat(4,1fr);gap:16px;
+          margin-bottom:24px;
+        }
+        @media(max-width:800px){.kpi-strip{grid-template-columns:repeat(2,1fr);}}
+        .kpi-card {
+          background:var(--bg-panel);
+          border:1px solid var(--border);
+          border-radius:10px;padding:18px 20px;
+          box-shadow:var(--shadow-card);
+          transition:box-shadow 0.15s,border-color 0.15s;
+        }
+        .kpi-card:hover { box-shadow:var(--shadow-md);border-color:var(--accent); }
+        .kpi-label { font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:8px; }
+        .kpi-value { font-size:22px;font-weight:800;color:var(--text-1);letter-spacing:-.02em;margin-bottom:4px;font-variant-numeric:tabular-nums; }
+        .kpi-delta { font-size:12px;font-weight:600; }
+        .kpi-delta.positive { color:#10b981; }
+        .kpi-delta.negative { color:#ef4444; }
+
+        /* ─── Grid ─── */
+        .accueil-grid {
+          display:grid;grid-template-columns:1fr 380px;gap:20px;
+          align-items:start;
+        }
+        @media(max-width:900px){.accueil-grid{grid-template-columns:1fr;}}
+        .accueil-left,.accueil-right { display:flex;flex-direction:column;gap:20px; }
+
+        /* ─── Cards ─── */
+        .stripe-card {
+          background:var(--bg-panel);
+          border:1px solid var(--border);
+          border-radius:10px;padding:20px;
+          box-shadow:var(--shadow-card);
+        }
+        .card-header {
+          display:flex;align-items:center;justify-content:space-between;
+          margin-bottom:16px;
+        }
+        .card-title { font-size:14px;font-weight:700;color:var(--text-1); }
+        .card-subtitle { font-size:12px;color:var(--text-3); }
+        .card-desc { font-size:13px;color:var(--text-3);margin:0 0 16px;line-height:1.5; }
+        .card-badge {
+          font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;
+        }
+        .card-badge.green {
+          background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:#10b981;
+        }
+        .card-badge.indigo {
+          background:rgba(99,91,255,0.08);border:1px solid rgba(99,91,255,0.2);color:#635bff;
+        }
+
+        /* ─── Alert card ─── */
+        .alert-card {
+          background:var(--bg-panel);border:1px solid var(--border);
+          border-radius:10px;overflow:hidden;box-shadow:var(--shadow-card);
+        }
+        .alert-card-header {
+          display:flex;align-items:center;justify-content:space-between;
+          padding:16px 20px;border-bottom:1px solid var(--border);
+        }
+        .alert-card-title { font-size:14px;font-weight:700;color:var(--text-1); }
+        .alert-count-badge {
+          font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;
+          background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#ef4444;
+        }
+        .alert-list { padding:4px 0; }
+        .alert-row {
+          display:flex;align-items:center;gap:10px;
+          padding:11px 20px;text-decoration:none;
+          border-bottom:1px solid var(--border2);
+          transition:background 0.1s;
+          color:inherit;
+        }
+        .alert-row:last-child { border-bottom:none; }
+        .alert-row:hover { background:var(--bg-card); }
+        .alert-entity { font-size:13px;font-weight:600;color:var(--text-1); }
+        .alert-label  { font-size:13px;color:var(--text-3); }
+        .alert-arrow  { color:var(--text-4);flex-shrink:0; }
+        .alert-card-footer {
+          padding:12px 20px;border-top:1px solid var(--border);
+          background:var(--bg-card2);
+        }
+        .alert-footer-link {
+          font-size:12px;font-weight:600;color:var(--accent);text-decoration:none;
+        }
+
+        .sev-dot {
+          width:7px;height:7px;border-radius:50%;flex-shrink:0;
+        }
+        .sev-dot.critical { background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,0.2); }
+        .sev-dot.warning  { background:#f59e0b;box-shadow:0 0 0 2px rgba(245,158,11,0.2); }
+
+        /* ─── Macro grid ─── */
+        .macro-grid {
+          display:grid;grid-template-columns:1fr 1fr;gap:12px;
+        }
+        .macro-item {
+          background:var(--bg-card);border:1px solid var(--border2);
+          border-radius:8px;padding:12px;
+        }
+        .macro-item-label { font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:6px; }
+        .macro-item-val   { font-size:17px;font-weight:800;color:var(--text-1);letter-spacing:-.02em;margin-bottom:2px; }
+        .macro-item-delta { font-size:11px;font-weight:600; }
+        .macro-item-delta.positive { color:#10b981; }
+        .macro-item-delta.negative { color:#ef4444; }
+
+        /* ─── AI questions ─── */
+        .ai-questions { display:flex;flex-direction:column;gap:6px; }
+        .ai-question-chip {
+          display:flex;align-items:center;gap:10px;
+          padding:10px 12px;border-radius:8px;
+          background:var(--bg-card);border:1px solid var(--border2);
+          font-size:13px;color:var(--text-2);text-decoration:none;
+          transition:all 0.15s;
+        }
+        .ai-question-chip:hover {
+          background:var(--bg-card2);border-color:var(--border);color:var(--text-1);
+        }
+
+        /* ─── Perf list ─── */
+        .perf-list { display:flex;flex-direction:column;gap:8px; }
+        .perf-row {
+          display:flex;align-items:center;gap:10px;
+          padding:8px 10px;border-radius:8px;
+          text-decoration:none;color:inherit;
+          transition:background 0.1s;
+        }
+        .perf-row:hover { background:var(--bg-card); }
+        .perf-name { font-size:13px;font-weight:500;color:var(--text-2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+        .perf-bar-wrap { display:flex;align-items:center;gap:8px; }
+        .perf-bar-bg {
+          width:80px;height:4px;border-radius:4px;
+          background:var(--bg-card2);overflow:hidden;
+        }
+        .perf-bar-fill { height:100%;border-radius:4px;transition:width 0.3s; }
+        .perf-pct { font-size:12px;font-weight:700;min-width:34px;text-align:right; }
+        .perf-evol { font-size:11px;font-weight:600;min-width:44px;text-align:right; }
+        .perf-evol.positive { color:#10b981; }
+        .perf-evol.negative { color:#ef4444; }
+      `}</style>
     </div>
   );
 }
