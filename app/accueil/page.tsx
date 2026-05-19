@@ -3,6 +3,7 @@ import Link from "next/link";
 import { JarvisClock } from "@/components/JarvisClock";
 import { AccueilThemeToggle } from "@/components/AccueilThemeToggle";
 import { AccueilAISection } from "@/components/AccueilAISection";
+import { LogoutButton } from "@/components/LogoutButton";
 
 const PERIOD = "2026-05";
 const PREV   = "2026-04";
@@ -99,13 +100,7 @@ export default async function AccueilPage() {
             </div>
             <Link href="/war-room" className="ac-nav-btn">War Room →</Link>
             <AccueilThemeToggle/>
-            <a href="/api/logout" className="ac-logout-btn" title="Se deconnecter">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-            </a>
+            <LogoutButton/>
           </div>
         </div>
       </nav>
