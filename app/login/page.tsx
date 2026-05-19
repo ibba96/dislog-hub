@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     if (password === PASS) {
       document.cookie = "dislog_auth=1; path=/; max-age=86400";
-      router.push("/");
+      router.push("/accueil");
     } else {
       setError(true);
       setLoading(false);
