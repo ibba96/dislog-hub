@@ -14,8 +14,10 @@ export default async function AccueilPage() {
     prisma.kpiEntry.findMany({ where: { period: PREV } }),
   ]);
 
-  const val = (eid: string, kid: string, src = current) =>
+  const val = (eid: string, kid: string, src: typeof prev = prev) =>
     src.find(e => e.entityId === eid && e.kpiDefId === kid)?.value ?? null;
+  const valC = (eid: string, kid: string) =>
+    current.find(e => e.entityId === eid && e.kpiDefId === kid)?.value ?? null;
   const tgt = (eid: string, kid: string) =>
     current.find(e => e.entityId === eid && e.kpiDefId === kid)?.target ?? null;
 
@@ -28,10 +30,10 @@ export default async function AccueilPage() {
   // Build alerts
   const alerts: { entity: string; slug: string; label: string; severity: "critical"|"warning" }[] = [];
   for (const e of entities) {
-    const ca = val(e.id, "ca");
+    const ca = valC(e.id, "ca");
     const caTarget = tgt(e.id, "ca");
-    const prevCA = val(e.id, "ca", prev);
-    const taux = val(e.id, "taux-service");
+    const prevCA = val(e.id, "ca");
+    const taux = valC(e.id, "taux-service");
     const tauxT = tgt(e.id, "taux-service");
     if (!ca) continue;
     if (caTarget && ca < caTarget * 0.80) {
@@ -54,12 +56,10 @@ export default async function AccueilPage() {
 
   // Best performer
   const performers = entities.map(e => {
-    const ca = val(e.id, "ca") ?? 0;
+    const ca = valC(e.id, "ca") ?? 0;
     const caT = tgt(e.id, "ca") ?? 0;
     return { name: e.name, slug: e.slug, pct: caT ? ca/caT*100 : 0 };
   }).sort((a,b) => b.pct - a.pct);
-  const best = performers[0];
-
   const S = {
     page: {
       minHeight: "100vh",
