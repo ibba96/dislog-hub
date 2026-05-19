@@ -99,6 +99,13 @@ export default async function AccueilPage() {
             </div>
             <Link href="/war-room" className="ac-nav-btn">War Room →</Link>
             <AccueilThemeToggle/>
+            <a href="/api/logout" className="ac-logout-btn" title="Se deconnecter">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </a>
           </div>
         </div>
       </nav>
@@ -311,6 +318,18 @@ export default async function AccueilPage() {
           letter-spacing:-.01em;
         }
         .ac-nav-btn:hover { color:var(--text-1);border-color:var(--accent); }
+
+        .ac-logout-btn {
+          width:34px;height:34px;border-radius:6px;flex-shrink:0;
+          display:flex;align-items:center;justify-content:center;
+          background:var(--bg-card);border:1px solid var(--border);
+          color:var(--text-3);text-decoration:none;
+          transition:all 0.15s;
+        }
+        .ac-logout-btn:hover {
+          color:#ef4444;border-color:rgba(239,68,68,0.35);
+          background:rgba(239,68,68,0.06);
+        }
 
         /* ─── Main ─── */
         .ac-main { max-width:1160px;margin:0 auto;padding:32px 28px 80px; }
