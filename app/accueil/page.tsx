@@ -117,11 +117,11 @@ export default async function AccueilPage() {
         {/* KPI STRIP */}
         <div className="ac-kpi-strip">
           {([
-            { label: "CA Groupe",        value: `${(totalCA/1e6).toFixed(0)} M MAD`,   delta: `${caEvol>=0?"+":""}${caEvol.toFixed(1)}% vs mois préc.`,                                  ok: caEvol >= 0 },
-            { label: "Marge brute",      value: `${(totalMarge/1e6).toFixed(0)} M MAD`, delta: `${totalCA?(totalMarge/totalCA*100).toFixed(1):"-"}% du CA`,                              ok: true },
-            { label: "Filiales actives", value: String(entities.length),                delta: "Groupe Dislog Belkhyat",                                                                  ok: true },
-            { label: "Score santé moy.", value: `${avgHealth}/100`,                     delta: `${healthData.filter(h=>h.score>=80).length} saines · ${healthData.filter(h=>h.score<60).length} critiques`, ok: healthData.filter(h=>h.score<60).length===0 },
-          ] as const).map((k, i) => (
+            { label: "CA Groupe",        value: `${(totalCA/1e6).toFixed(0)} M MAD`,    delta: `${caEvol>=0?"+":""}${caEvol.toFixed(1)}% vs mois préc.`,                                                                       ok: caEvol >= 0 },
+            { label: "Marge brute",      value: `${(totalMarge/1e6).toFixed(0)} M MAD`, delta: `${totalCA?(totalMarge/totalCA*100).toFixed(1):"-"}% du CA`,                                                                    ok: true        },
+            { label: "Filiales actives", value: String(entities.length),                 delta: "Groupe Dislog Belkhyat",                                                                                                       ok: true        },
+            { label: "Score sante moy.", value: `${avgHealth}/100`,                      delta: `${healthData.filter(h=>h.score>=80).length} saines · ${healthData.filter(h=>h.score<60).length} critiques`,                   ok: healthData.filter(h=>h.score<60).length===0 },
+          ] as { label:string; value:string; delta:string; ok:boolean }[]).map((k, i) => (
             <div key={i} className="ac-kpi-card">
               <div className="ac-kpi-label">{k.label}</div>
               <div className="ac-kpi-value">{k.value}</div>
